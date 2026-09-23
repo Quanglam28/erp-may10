@@ -66,7 +66,6 @@ const getActiveModuleMeta = (pathname) => {
   if (pathname.startsWith('/warehouse')) {
     return {
       groupKey: 'KHO & VẬT TƯ',
-      code: 'PH4',
       title: 'Kho & Quản lý Vật tư',
       desc: 'Quản lý kho vải, NPL & kiểm kê',
     };
@@ -90,7 +89,6 @@ const getActiveModuleMeta = (pathname) => {
   if (pathname.startsWith('/purchasing')) {
     return {
       groupKey: 'MUA HÀNG',
-      code: 'PH3',
       title: 'Mua hàng & Nhà cung ứng',
       desc: 'Đơn mua hàng PO & nhà cung cấp',
     };
@@ -159,9 +157,11 @@ export default function Sidebar({ isOpen, onClose }) {
           {activeModule && (
             <div className="p-2.5 rounded-xl bg-white border border-[#DCEAF4] shadow-2xs">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0F5FAF] text-white">
-                  {activeModule.code}
-                </span>
+                {activeModule.code && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0F5FAF] text-white">
+                    {activeModule.code}
+                  </span>
+                )}
                 <span className="text-xs font-bold text-[#0F3B66] truncate">
                   {activeModule.title}
                 </span>

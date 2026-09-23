@@ -53,7 +53,6 @@ const TOP_NAV_SECTIONS = [
     title: 'Mua hàng',
     path: '/purchasing',
     permission: 'purchasing.view',
-    badge: 'PH3',
     items: [
       { title: 'Tổng quan', path: '/purchasing' },
       { title: 'Đơn mua hàng (PO)', path: '/purchasing/purchase-orders' },
@@ -65,7 +64,6 @@ const TOP_NAV_SECTIONS = [
     title: 'Kho & Vật tư',
     path: '/warehouse?tab=dashboard',
     permission: 'warehouse.view',
-    badge: 'PH4',
     items: [
       { title: 'Tổng quan kho', path: '/warehouse?tab=dashboard' },
       { title: 'Tồn kho & Thẻ kho', path: '/warehouse?tab=ton-kho' },
