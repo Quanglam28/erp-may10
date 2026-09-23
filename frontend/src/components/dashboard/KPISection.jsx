@@ -34,6 +34,16 @@ export default function KPISection() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
   };
 
+  const formatMoney = (val) => {
+    if (val === null || val === undefined) return 'Chưa có dữ liệu';
+    const num = Number(val);
+    if (isNaN(num)) return 'Chưa có dữ liệu';
+    if (Math.abs(num) >= 1000000000) {
+      return `${(num / 1000000000).toFixed(2)} tỷ`;
+    }
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
+  };
+
   const inv = summary?.inventory;
   const sales = summary?.sales;
   const prod = summary?.production;
@@ -45,27 +55,32 @@ export default function KPISection() {
       id: 'kpi-sales-orders',
       title: 'Đơn hàng',
       value:
-        sales?.soDonHangSeed !== undefined && sales?.soDonHangSeed !== null
-          ? `${sales.soDonHangSeed}`
-          : 'Chưa có dữ liệu',
+        sales?.soDonHang !== undefined && sales?.soDonHang !== null
+          ? `${sales.soDonHang}`
+          : (sales?.soDonHangSeed !== undefined && sales?.soDonHangSeed !== null
+              ? `${sales.soDonHangSeed}`
+              : 'Chưa có dữ liệu'),
       change: null,
       changeType: 'neutral',
-      subtext: sales?.soDonHangSeed ? 'Tổng đơn trên hệ thống' : 'Phân hệ đang triển khai',
+      subtext: sales?.connected || sales?.soDonHangSeed ? 'Tổng đơn trên hệ thống' : 'Phân hệ đang triển khai',
       icon: ShoppingBag,
-      isOperational: Boolean(sales?.soDonHangSeed !== undefined && sales?.soDonHangSeed !== null),
+      isOperational: Boolean(
+        (sales?.soDonHang !== undefined && sales?.soDonHang !== null) ||
+        (sales?.soDonHangSeed !== undefined && sales?.soDonHangSeed !== null)
+      ),
     },
     {
       id: 'kpi-production',
       title: 'Sản xuất',
       value:
-        prod?.connected && prod?.sanLuongHoanThanh
-          ? `${prod.sanLuongHoanThanh.toLocaleString('vi-VN')}`
+        prod?.connected && prod?.sanLuongHoanThanh !== null && prod?.sanLuongHoanThanh !== undefined
+          ? `${Number(prod.sanLuongHoanThanh).toLocaleString('vi-VN')} SP`
           : 'Chưa có dữ liệu',
       change: null,
       changeType: 'neutral',
       subtext: prod?.connected ? 'Tiến độ chuyền may công nghiệp' : 'Phân hệ đang triển khai',
       icon: Factory,
-      isOperational: Boolean(prod?.connected && prod?.sanLuongHoanThanh),
+      isOperational: Boolean(prod?.connected && prod?.sanLuongHoanThanh !== null && prod?.sanLuongHoanThanh !== undefined),
     },
     {
       id: 'kpi-inventory',
@@ -84,40 +99,40 @@ export default function KPISection() {
       id: 'kpi-revenue',
       title: 'Doanh thu',
       value:
-        sales?.connected && sales?.doanhThu
-          ? formatCurrency(sales.doanhThu)
+        sales?.connected && sales?.doanhThu !== null && sales?.doanhThu !== undefined
+          ? formatMoney(sales.doanhThu)
           : 'Chưa có dữ liệu',
       change: null,
       changeType: 'neutral',
       subtext: sales?.connected ? 'Doanh thu bán hàng' : 'Phân hệ đang triển khai',
       icon: TrendingUp,
-      isOperational: Boolean(sales?.connected && sales?.doanhThu),
+      isOperational: Boolean(sales?.connected && sales?.doanhThu !== null && sales?.doanhThu !== undefined),
     },
     {
       id: 'kpi-ar',
       title: 'Công nợ phải thu',
       value:
-        acc?.connected && acc?.congNoPhaiThu
-          ? formatCurrency(acc.congNoPhaiThu)
+        acc?.connected && acc?.congNoPhaiThu !== null && acc?.congNoPhaiThu !== undefined
+          ? formatMoney(acc.congNoPhaiThu)
           : 'Chưa có dữ liệu',
       change: null,
       changeType: 'neutral',
       subtext: acc?.connected ? 'Khách hàng đến hạn' : 'Phân hệ đang triển khai',
       icon: ArrowDownLeft,
-      isOperational: Boolean(acc?.connected && acc?.congNoPhaiThu),
+      isOperational: Boolean(acc?.connected && acc?.congNoPhaiThu !== null && acc?.congNoPhaiThu !== undefined),
     },
     {
       id: 'kpi-ap',
       title: 'Công nợ phải trả',
       value:
-        acc?.connected && acc?.congNoPhaiTra
-          ? formatCurrency(acc.congNoPhaiTra)
+        acc?.connected && acc?.congNoPhaiTra !== null && acc?.congNoPhaiTra !== undefined
+          ? formatMoney(acc.congNoPhaiTra)
           : 'Chưa có dữ liệu',
       change: null,
       changeType: 'neutral',
       subtext: acc?.connected ? 'Nhà cung cấp' : 'Phân hệ đang triển khai',
       icon: ArrowUpRight,
-      isOperational: Boolean(acc?.connected && acc?.congNoPhaiTra),
+      isOperational: Boolean(acc?.connected && acc?.congNoPhaiTra !== null && acc?.congNoPhaiTra !== undefined),
     },
   ];
 

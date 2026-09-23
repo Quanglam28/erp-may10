@@ -261,6 +261,8 @@ function getModules(req, res) {
 async function getDashboardSummary(req, res, next) {
   try {
     let summaryData = {
+      systemStatus: 'OPERATIONAL',
+      lastSync: new Date().toISOString(),
       inventory: {
         connected: true,
         statusText: 'Kết nối thực tế (PH4)',
@@ -276,21 +278,24 @@ async function getDashboardSummary(req, res, next) {
       sales: {
         connected: false,
         statusText: 'Đang chờ kết nối phân hệ PH1',
-        soDonHangSeed: 2,
+        soDonHang: 0,
+        soDonHangSeed: 0,
         doanhThu: null,
         ghiChu: 'Chưa kết nối API nghiệp vụ PH1 Bán hàng',
       },
       production: {
         connected: false,
         statusText: 'Đang chờ kết nối phân hệ PH2',
-        soLenhSXSeed: 2,
+        soLenhSX: 0,
+        soLenhSXSeed: 0,
         sanLuongHoanThanh: null,
         ghiChu: 'Chưa kết nối API nghiệp vụ PH2 Sản xuất',
       },
       purchasing: {
         connected: false,
         statusText: 'Đang chờ kết nối phân hệ PH3',
-        soDonMuaSeed: 2,
+        soDonMua: 0,
+        soDonMuaSeed: 0,
         tongGiaTriMua: null,
         ghiChu: 'Chưa kết nối API nghiệp vụ PH3 Mua hàng',
       },
@@ -304,20 +309,13 @@ async function getDashboardSummary(req, res, next) {
     };
 
     try {
-      // 1. Lấy dữ liệu tồn kho thực tế từ PH4 (Database erp_may10)
+      // 1. Lấy dữ liệu tồn kho thực tế từ PH4 (Database erp_may10) - GIỮ NGUYÊN BẢO ĐẢM HỆ THỐNG
       const [tonRes, vatTuRes, canhBaoRes, nhapRes, xuatRes] = await Promise.all([
         db.query(`SELECT COALESCE(SUM(gia_tri_ton_kho), 0) AS tong_gia_tri, COUNT(id) AS so_mat_hang FROM ton_kho WHERE so_luong_ton > 0`),
         db.query(`SELECT COUNT(*) AS total FROM vat_tu`),
         db.query(`SELECT COUNT(*) AS low_stock FROM ton_kho tk JOIN vat_tu vt ON tk.ma_vat_tu = vt.id WHERE tk.so_luong_ton <= COALESCE(vt.muc_ton_toi_thieu, 0)`),
         db.query(`SELECT COUNT(*) AS count, COALESCE(SUM(tong_gia_tri_nhap), 0) AS total_val FROM phieu_nhap_kho WHERE trang_thai = 'da_nhap'`),
         db.query(`SELECT COUNT(*) AS count, COALESCE(SUM(tong_gia_tri_xuat), 0) AS total_val FROM phieu_xuat_kho WHERE trang_thai = 'da_xuat'`),
-      ]);
-
-      // 2. Tra cứu số lượng chứng từ seed liên phân hệ đã có trong CSDL (PH1, PH2, PH3)
-      const [donBanRes, lenhSXRes, donMuaRes] = await Promise.all([
-        db.query(`SELECT COUNT(*) AS count FROM don_ban_hang`),
-        db.query(`SELECT COUNT(*) AS count FROM lenh_san_xuat`),
-        db.query(`SELECT COUNT(*) AS count FROM don_mua_hang`),
       ]);
 
       summaryData.inventory = {
@@ -332,11 +330,95 @@ async function getDashboardSummary(req, res, next) {
         soPhieuXuat: parseInt(xuatRes.rows[0].count, 10),
         tongGiaTriXuat: parseFloat(xuatRes.rows[0].total_val),
       };
-      summaryData.sales.soDonHangSeed = parseInt(donBanRes.rows[0].count, 10);
-      summaryData.production.soLenhSXSeed = parseInt(lenhSXRes.rows[0].count, 10);
-      summaryData.purchasing.soDonMuaSeed = parseInt(donMuaRes.rows[0].count, 10);
     } catch (dbErr) {
-      console.warn('[Portal Dashboard Summary DB Warning]:', dbErr.message);
+      console.warn('[Portal Inventory DB Warning]:', dbErr.message);
+    }
+
+    try {
+      // 2. Tra cứu dữ liệu thực tế từ PH1, PH2, PH3, PH5
+      const [salesRes, prodRes, purchRes, debtRes] = await Promise.all([
+        // PH1: Đơn hàng & Doanh thu bán hàng (loại trừ đơn hủy)
+        db.query(`
+          SELECT 
+            COUNT(*)::int AS so_don_hang,
+            COALESCE(SUM(CASE WHEN trang_thai <> 'huy' THEN tong_thanh_toan ELSE 0 END), 0)::numeric(18,2) AS doanh_thu
+          FROM don_ban_hang
+        `),
+        // PH2: Lệnh sản xuất & Sản lượng hoàn thành (loại trừ lệnh hủy)
+        db.query(`
+          SELECT 
+            COUNT(*)::int AS so_lenh_sx,
+            COALESCE(SUM(CASE WHEN trang_thai <> 'huy' THEN so_luong_hoan_thanh ELSE 0 END), 0)::numeric(18,3) AS san_luong_hoan_thanh
+          FROM lenh_san_xuat
+        `),
+        // PH3: Đơn mua hàng & Giá trị mua hàng (loại trừ đơn hủy)
+        db.query(`
+          SELECT 
+            COUNT(*)::int AS so_don_mua,
+            COALESCE(SUM(CASE WHEN trang_thai <> 'huy' THEN tong_thanh_toan ELSE 0 END), 0)::numeric(18,2) AS tong_gia_tri_mua
+          FROM don_mua_hang
+        `),
+        // PH5: Công nợ phải thu (AR) & Công nợ phải trả (AP)
+        db.query(`
+          SELECT 
+            COALESCE(SUM(CASE WHEN loai_cong_no = 'phai_thu' THEN so_tien_con_lai ELSE 0 END), 0)::numeric(18,2) AS cong_no_phai_thu,
+            COALESCE(SUM(CASE WHEN loai_cong_no = 'phai_tra' THEN so_tien_con_lai ELSE 0 END), 0)::numeric(18,2) AS cong_no_phai_tra
+          FROM cong_no
+        `),
+      ]);
+
+      if (salesRes && salesRes.rows && salesRes.rows.length > 0) {
+        const row = salesRes.rows[0];
+        const soDonHang = parseInt(row.so_don_hang, 10) || 0;
+        const doanhThu = parseFloat(row.doanh_thu) || 0;
+        summaryData.sales = {
+          connected: true,
+          statusText: 'Kết nối thực tế (PH1)',
+          soDonHang,
+          soDonHangSeed: soDonHang,
+          doanhThu,
+        };
+      }
+
+      if (prodRes && prodRes.rows && prodRes.rows.length > 0) {
+        const row = prodRes.rows[0];
+        const soLenhSX = parseInt(row.so_lenh_sx, 10) || 0;
+        const sanLuongHoanThanh = parseFloat(row.san_luong_hoan_thanh) || 0;
+        summaryData.production = {
+          connected: true,
+          statusText: 'Kết nối thực tế (PH2)',
+          soLenhSX,
+          soLenhSXSeed: soLenhSX,
+          sanLuongHoanThanh,
+        };
+      }
+
+      if (purchRes && purchRes.rows && purchRes.rows.length > 0) {
+        const row = purchRes.rows[0];
+        const soDonMua = parseInt(row.so_don_mua, 10) || 0;
+        const tongGiaTriMua = parseFloat(row.tong_gia_tri_mua) || 0;
+        summaryData.purchasing = {
+          connected: true,
+          statusText: 'Kết nối thực tế (PH3)',
+          soDonMua,
+          soDonMuaSeed: soDonMua,
+          tongGiaTriMua,
+        };
+      }
+
+      if (debtRes && debtRes.rows && debtRes.rows.length > 0) {
+        const row = debtRes.rows[0];
+        const congNoPhaiThu = parseFloat(row.cong_no_phai_thu) || 0;
+        const congNoPhaiTra = parseFloat(row.cong_no_phai_tra) || 0;
+        summaryData.accounting = {
+          connected: true,
+          statusText: 'Kết nối thực tế (PH5)',
+          congNoPhaiThu,
+          congNoPhaiTra,
+        };
+      }
+    } catch (crossModErr) {
+      console.warn('[Portal Cross-Module DB Warning]:', crossModErr.message);
     }
 
     res.json({
