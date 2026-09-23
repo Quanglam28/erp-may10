@@ -1,5 +1,5 @@
 const { listJournals, journalFilters, journalDetail } = require('../services/journalService');
-const { createJournalEntry, updateJournalEntry } = require('../services/journalWriteService');
+const { createJournalEntry, updateJournalEntry, approveJournalEntry } = require('../services/journalWriteService');
 function invalid(message) { const error = new Error(message); error.status = 400; throw error; }
 function text(query, key, max = 200) {
   const value = query[key];
@@ -36,7 +36,7 @@ async function postJournal(req, res) {
   const amount = String(req.body.amount ?? '').trim();
   if (!/^\d{1,16}(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0) invalid('Số tiền phải lớn hơn 0, tối đa 16 chữ số nguyên và 2 chữ số thập phân.');
   if (typeof req.body.description !== 'string' || !req.body.description.trim() || req.body.description.length > 10000) invalid('Diễn giải là bắt buộc và không được vượt quá 10.000 ký tự.');
-  const data = await createJournalEntry({ documentId, debitAccountId, creditAccountId, amount, description: req.body.description.trim() });
+  const data = await createJournalEntry({ documentId, debitAccountId, creditAccountId, amount, description: req.body.description.trim(), userId: req.user?.id });
   res.status(201).set('Cache-Control', 'no-store').json({ data });
 }
 
@@ -60,4 +60,10 @@ async function patchJournal(req, res) {
   res.set('Cache-Control', 'no-store').json({ data: await updateJournalEntry(id(req.params.id), data) });
 }
 
-module.exports = { getJournals, getJournalFilters, getJournal, postJournal, patchJournal };
+async function approveJournal(req, res) {
+  const journalId = id(req.params.id);
+  const data = await approveJournalEntry(journalId, req.user);
+  res.json({ data });
+}
+
+module.exports = { getJournals, getJournalFilters, getJournal, postJournal, patchJournal, approveJournal };

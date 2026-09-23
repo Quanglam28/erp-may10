@@ -3,7 +3,7 @@
  * Synchronized across Backend, Frontend, and Database (nguoi_dung)
  */
 
-// 1. CANONICAL ROLES (Chuẩn hóa 6 vai trò chính thức tiếng Việt theo RBAC Contract)
+// 1. CANONICAL ROLES (Chuẩn hóa các vai trò chính thức tiếng Việt theo RBAC Contract)
 const CANONICAL_ROLES = {
   ADMIN: 'admin',
   KHO: 'kho',
@@ -11,6 +11,7 @@ const CANONICAL_ROLES = {
   SAN_XUAT: 'san_xuat',
   MUA_HANG: 'mua_hang',
   KE_TOAN: 'ke_toan',
+  KE_TOAN_TRUONG: 'ke_toan_truong',
 
   // Adapter tương thích nội bộ (Internal Security Adapter Compatibility)
   WAREHOUSE: 'kho',
@@ -18,9 +19,10 @@ const CANONICAL_ROLES = {
   PRODUCTION: 'san_xuat',
   PURCHASING: 'mua_hang',
   ACCOUNTING: 'ke_toan',
+  CHIEF_ACCOUNTANT: 'ke_toan_truong',
 };
 
-// 2. DICTIONARY MAPPING (Hỗ trợ chuẩn hóa mọi định dạng về 6 vai trò tiếng Việt)
+// 2. DICTIONARY MAPPING (Hỗ trợ chuẩn hóa mọi định dạng về các vai trò tiếng Việt)
 const ROLE_MAPPING = {
   // Admin
   'admin': 'admin',
@@ -53,13 +55,17 @@ const ROLE_MAPPING = {
   'purchasing': 'mua_hang',
   'PURCHASING': 'mua_hang',
 
-  // Phân hệ PH5: Tài chính - Kế toán
+  // Phân hệ PH5: Tài chính - Kế toán (Kế toán viên)
   'ke_toan': 'ke_toan',
   'KE_TOAN': 'ke_toan',
-  'ke_toan_truong': 'ke_toan',
-  'KE_TOAN_TRUONG': 'ke_toan',
   'accounting': 'ke_toan',
   'ACCOUNTING': 'ke_toan',
+
+  // Phân hệ PH5: Kế toán trưởng (Chief Accountant)
+  'ke_toan_truong': 'ke_toan_truong',
+  'KE_TOAN_TRUONG': 'ke_toan_truong',
+  'chief_accountant': 'ke_toan_truong',
+  'CHIEF_ACCOUNTANT': 'ke_toan_truong',
 };
 
 /**
@@ -121,6 +127,31 @@ const ACCOUNTING_PERMISSIONS = [
   'accounting.receivable',
   'accounting.payable',
   'accounting.cost',
+  'accounting.costing',
+  'document.view',
+  'document.create',
+  'document.edit',
+  'journal.view',
+  'journal.create',
+  'journal.edit',
+  'ledger.view',
+  'debt.view',
+  'cost.view',
+  'costing.view',
+];
+
+const CHIEF_ACCOUNTING_PERMISSIONS = [
+  ...ACCOUNTING_PERMISSIONS,
+  'orderEfficiency.view',
+  'accounting.reports',
+  'report.view',
+  'chiefDashboard.view',
+  'monitoring.view',
+  'accounting.approve',
+  'document.approve',
+  'journal.approve',
+  'document.delete',
+  'journal.delete',
 ];
 
 const ADMIN_PERMISSIONS = [
@@ -130,18 +161,19 @@ const ADMIN_PERMISSIONS = [
   'purchasing.view', 'purchasing.create', 'purchasing.update', 'purchasing.approve',
   'kho.view', 'kho.nhap', 'kho.xuat', 'kho.chuyen', 'kho.kiem_ke',
   'warehouse.view', 'warehouse.receipt', 'warehouse.issue', 'warehouse.transfer', 'warehouse.stocktake',
-  'accounting.view', 'accounting.journal', 'accounting.receivable', 'accounting.payable', 'accounting.cost',
+  ...CHIEF_ACCOUNTING_PERMISSIONS,
   'admin.users', 'admin.roles', 'admin.permissions', 'admin.settings',
 ];
 
 const ROLE_PERMISSIONS = {
-  // Canonical 6 Vietnamese roles
+  // Canonical Vietnamese roles
   admin: ADMIN_PERMISSIONS,
   kho: KHO_PERMISSIONS,
   ban_hang: SALES_PERMISSIONS,
   san_xuat: PRODUCTION_PERMISSIONS,
   mua_hang: PURCHASING_PERMISSIONS,
   ke_toan: ACCOUNTING_PERMISSIONS,
+  ke_toan_truong: CHIEF_ACCOUNTING_PERMISSIONS,
 
   // Internal test / adapter compatibility
   ADMIN: ADMIN_PERMISSIONS,
@@ -150,11 +182,13 @@ const ROLE_PERMISSIONS = {
   PRODUCTION: PRODUCTION_PERMISSIONS,
   PURCHASING: PURCHASING_PERMISSIONS,
   ACCOUNTING: ACCOUNTING_PERMISSIONS,
+  CHIEF_ACCOUNTANT: CHIEF_ACCOUNTING_PERMISSIONS,
   warehouse: KHO_PERMISSIONS,
   sales: SALES_PERMISSIONS,
   production: PRODUCTION_PERMISSIONS,
   purchasing: PURCHASING_PERMISSIONS,
   accounting: ACCOUNTING_PERMISSIONS,
+  chief_accountant: CHIEF_ACCOUNTING_PERMISSIONS,
 };
 
 const ROLE_PERMISSIONS_LOWERCASE = ROLE_PERMISSIONS;

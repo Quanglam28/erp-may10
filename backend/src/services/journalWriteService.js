@@ -50,10 +50,10 @@ async function createJournalEntry(data) {
       (ma_hach_toan, ma_chung_tu_goc, ngay_hach_toan, tai_khoan_no, tai_khoan_co,
        so_tien, mo_ta, ky_ke_toan, trang_thai, nguoi_hach_toan, nguoi_phe_duyet,
        nguoi_tao, nguoi_cap_nhat)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'da_hach_toan', NULL, NULL, NULL, NULL)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'da_hach_toan', $9, NULL, $9, NULL)
       RETURNING id, ma_hach_toan, ma_chung_tu_goc, ngay_hach_toan, tai_khoan_no,
-        tai_khoan_co, so_tien, mo_ta, ky_ke_toan, trang_thai`,
-      [code, data.documentId, postingDate, data.debitAccountId, data.creditAccountId, data.amount, data.description, period]);
+        tai_khoan_co, so_tien, mo_ta, ky_ke_toan, trang_thai, nguoi_hach_toan, nguoi_phe_duyet`,
+      [code, data.documentId, postingDate, data.debitAccountId, data.creditAccountId, data.amount, data.description, period, data.userId ?? null]);
     await client.query('COMMIT');
     return result.rows[0];
   } catch (error) {
@@ -114,4 +114,37 @@ async function updateJournalEntry(id, changes) {
   }
 }
 
-module.exports = { validateSourceDocumentStatus, createJournalEntry, updateJournalEntry };
+async function approveJournalEntry(id, user) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const journalResult = await client.query(`SELECT id, ma_hach_toan, ma_chung_tu_goc,
+      nguoi_hach_toan, nguoi_tao, nguoi_phe_duyet, trang_thai
+      FROM public.nhat_ky_hach_toan WHERE id = $1 FOR UPDATE`, [id]);
+    const journal = journalResult.rows[0];
+    if (!journal) businessError(404, 'Không tìm thấy bút toán.');
+
+    // Separation of Duties (SoD) Check: Maker cannot be Checker (except Admin)
+    const creatorId = journal.nguoi_tao || journal.nguoi_hach_toan;
+    if (user && user.role !== 'admin' && creatorId && Number(creatorId) === Number(user.id)) {
+      businessError(403, 'Nguyên tắc Bất kiêm nhiệm: Người lập không được tự phê duyệt bút toán của chính mình.');
+    }
+
+    const result = await client.query(`UPDATE public.nhat_ky_hach_toan
+      SET nguoi_phe_duyet = $2, trang_thai = 'da_duyet', ngay_cap_nhat = now(), nguoi_cap_nhat = $2
+      WHERE id = $1
+      RETURNING id, ma_hach_toan, ma_chung_tu_goc, tai_khoan_no, tai_khoan_co, so_tien, mo_ta,
+        trang_thai, nguoi_hach_toan, nguoi_phe_duyet, ngay_cap_nhat`,
+      [id, user?.id ?? null]);
+
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { validateSourceDocumentStatus, createJournalEntry, updateJournalEntry, approveJournalEntry };

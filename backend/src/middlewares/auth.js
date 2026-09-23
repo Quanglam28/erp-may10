@@ -9,7 +9,7 @@ const DEMO_USERS = {
   4: { id: 4, ho_ten: 'Lê Thị Mua', email: 'muahang@may10.vn', vai_tro: 'mua_hang', canonicalRole: 'PURCHASING', phong_ban: 'Phòng Cung Ứng' },
   5: { id: 5, ho_ten: 'Phạm Văn Kho', email: 'kho@may10.vn', vai_tro: 'kho', canonicalRole: 'WAREHOUSE', phong_ban: 'Bộ Phận Kho Vận' },
   6: { id: 6, ho_ten: 'Hoàng Thị Toán', email: 'ketoan@may10.vn', vai_tro: 'ke_toan', canonicalRole: 'ACCOUNTING', phong_ban: 'Phòng Tài Chính Kế Toán' },
-  7: { id: 7, ho_ten: 'Nguyễn Văn Trưởng', email: 'ketoantruong@may10.vn', vai_tro: 'ke_toan_truong', canonicalRole: 'ACCOUNTING', phong_ban: 'Phòng Tài Chính Kế Toán' },
+  7: { id: 7, ho_ten: 'Nguyễn Văn Trưởng', email: 'ketoantruong@may10.vn', vai_tro: 'ke_toan_truong', canonicalRole: 'KE_TOAN_TRUONG', phong_ban: 'Phòng Tài Chính Kế Toán' },
 };
 
 const DEMO_USERS_BY_ROLE = {
@@ -32,6 +32,8 @@ const DEMO_USERS_BY_ROLE = {
   'ACCOUNTING': DEMO_USERS[6],
   'ke_toan_truong': DEMO_USERS[7],
   'KE_TOAN_TRUONG': DEMO_USERS[7],
+  'chief_accountant': DEMO_USERS[7],
+  'CHIEF_ACCOUNTANT': DEMO_USERS[7],
 };
 
 const crypto = require('crypto');

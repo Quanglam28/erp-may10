@@ -66,12 +66,12 @@ async function lockEditable(client, id) {
   if (incoming.rows.length) fail(409, 'Chứng từ đang được chứng từ khác tham chiếu. Không được sửa/xóa.');
 }
 
-function createDocument(data) {
+function createDocument(data, userId = null) {
   return transaction(async (client) => {
     const result = await client.query(`INSERT INTO public.chung_tu_goc
-      (ma_chung_tu, loai_chung_tu, ngay_chung_tu, so_tien, mo_ta, file_dinh_kem)
-      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, ma_chung_tu`,
-    [data.ma_chung_tu, data.loai_chung_tu, data.ngay_chung_tu, data.so_tien, data.mo_ta ?? null, data.file_dinh_kem ?? null]);
+      (ma_chung_tu, loai_chung_tu, ngay_chung_tu, so_tien, mo_ta, file_dinh_kem, nguoi_tao)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, ma_chung_tu`,
+    [data.ma_chung_tu, data.loai_chung_tu, data.ngay_chung_tu, data.so_tien, data.mo_ta ?? null, data.file_dinh_kem ?? null, userId ?? null]);
     return result.rows[0];
   });
 }
@@ -92,4 +92,26 @@ function deleteDocument(id) {
   });
 }
 
-module.exports = { fail, validId, validateDocument, createDocument, updateDocument, deleteDocument };
+function approveDocument(id, user) {
+  return transaction(async (client) => {
+    const docResult = await client.query('SELECT id, ma_chung_tu, nguoi_tao, trang_thai FROM public.chung_tu_goc WHERE id = $1 FOR UPDATE', [id]);
+    if (!docResult.rows.length) fail(404, 'Không tìm thấy chứng từ.');
+    const doc = docResult.rows[0];
+
+    // Separation of Duties (SoD) Check: Maker cannot be Checker (except Admin)
+    if (user && user.role !== 'admin' && doc.nguoi_tao && Number(doc.nguoi_tao) === Number(user.id)) {
+      fail(403, 'Nguyên tắc Bất kiêm nhiệm: Người lập không được tự phê duyệt chứng từ của chính mình.');
+    }
+
+    const result = await client.query(
+      `UPDATE public.chung_tu_goc
+       SET trang_thai = 'hieu_luc', ngay_cap_nhat = now(), nguoi_cap_nhat = $2
+       WHERE id = $1
+       RETURNING id, ma_chung_tu, loai_chung_tu, ngay_chung_tu, so_tien, trang_thai, nguoi_cap_nhat, ngay_cap_nhat`,
+      [id, user?.id ?? null]
+    );
+    return result.rows[0];
+  });
+}
+
+module.exports = { fail, validId, validateDocument, createDocument, updateDocument, deleteDocument, approveDocument };

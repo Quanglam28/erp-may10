@@ -10,6 +10,7 @@ export const ROLES = {
   SAN_XUAT: 'san_xuat',
   MUA_HANG: 'mua_hang',
   KE_TOAN: 'ke_toan',
+  KE_TOAN_TRUONG: 'ke_toan_truong',
 };
 
 export const ROLE_DETAILS = {
@@ -79,6 +80,17 @@ export const ROLE_DETAILS = {
     defaultEmail: 'ketoan@may10.vn',
     defaultFullName: 'Hoàng Thị Toán',
   },
+  [ROLES.KE_TOAN_TRUONG]: {
+    code: 'ke_toan_truong',
+    name: 'Kế toán trưởng Tập đoàn May 10',
+    shortName: 'Kế toán trưởng',
+    department: 'Phòng Tài Chính – Kế Toán',
+    badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    description: 'Kiểm soát phê duyệt chứng từ & sổ nhật ký, phân tích hiệu quả đơn hàng và lập báo cáo tài chính.',
+    defaultUserId: 7,
+    defaultEmail: 'ketoantruong@may10.vn',
+    defaultFullName: 'Nguyễn Văn Trưởng',
+  },
 };
 
 export const DEMO_ACCOUNTS = [
@@ -88,4 +100,5 @@ export const DEMO_ACCOUNTS = [
   { ...ROLE_DETAILS[ROLES.MUA_HANG], id: 4 },
   { ...ROLE_DETAILS[ROLES.KHO], id: 5 },
   { ...ROLE_DETAILS[ROLES.KE_TOAN], id: 6 },
+  { ...ROLE_DETAILS[ROLES.KE_TOAN_TRUONG], id: 7 },
 ];
