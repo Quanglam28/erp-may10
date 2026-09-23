@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/rbac/AuthContext';
 import Dashboard from './pages/Dashboard.jsx';
@@ -35,7 +35,12 @@ export default function FinanceRoutes() {
   let path = location.pathname;
 
   if (path === BASE_PATH || path === `${BASE_PATH}/`) {
-    path = '/dashboard';
+    return (
+      <Navigate
+        to={`${BASE_PATH}${homePathForUser(currentUser)}`}
+        replace
+      />
+    );
   } else if (path.startsWith(`${BASE_PATH}/`)) {
     path = path.slice(BASE_PATH.length);
   }
@@ -52,7 +57,7 @@ export default function FinanceRoutes() {
   }
 
   const go = (target) => {
-    let next = target || '/dashboard';
+    let next = target || homePathForUser(currentUser);
 
     if (!next.startsWith('/')) {
       next = `/${next}`;
@@ -68,7 +73,7 @@ export default function FinanceRoutes() {
 
   let page = null;
 
-  if (path === '/dashboard') {
+  if (path === '/dashboard' || path === '/tong-quan-ke-toan') {
     page = (
       <Dashboard
         navigate={(_, target) => go(target)}

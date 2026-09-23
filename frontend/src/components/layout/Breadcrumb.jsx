@@ -9,6 +9,8 @@ const ROUTE_LABELS = {
   purchasing: 'Mua hàng & Nhà cung cấp',
   warehouse: 'Kho & Quản lý vật tư',
   accounting: 'PH5 — Tài chính – Kế toán',
+  'tong-quan-ke-toan': 'Tổng quan Kế toán',
+  'tong-quan-ke-toan-truong': 'Tổng quan Kế toán trưởng',
   admin: 'Quản trị hệ thống',
   users: 'Người dùng',
   roles: 'Vai trò doanh nghiệp',

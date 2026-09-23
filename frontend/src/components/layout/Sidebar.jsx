@@ -196,17 +196,29 @@ export default function Sidebar({ isOpen, onClose }) {
                 <div className="space-y-0.5">
                   {permittedItems.map((item) => {
                     const IconComponent = ICON_MAP[item.icon] || LayoutDashboard;
+                    const effectiveRole = user?.vai_tro || role;
+                    const itemPath = item.id === 'acc-dashboard'
+                      ? (effectiveRole === 'ke_toan_truong'
+                          ? '/accounting/tong-quan-ke-toan-truong'
+                          : '/accounting/tong-quan-ke-toan')
+                      : item.path;
                     
-                    const isMatch = (item.path === '/purchasing' || item.path === '/production' || item.path === '/accounting')
-                      ? (location.pathname === item.path || location.pathname === item.path + '/')
-                      : (item.path.includes('?tab=')
-                          ? location.pathname + location.search === item.path
-                          : (location.pathname === item.path || location.pathname.startsWith(item.path + '/')));
+                    const isMatch = item.id === 'acc-dashboard'
+                      ? (location.pathname === '/accounting' ||
+                         location.pathname === '/accounting/' ||
+                         location.pathname === '/accounting/tong-quan-ke-toan' ||
+                         location.pathname === '/accounting/tong-quan-ke-toan-truong' ||
+                         location.pathname === '/accounting/dashboard')
+                      : (item.path === '/purchasing' || item.path === '/production')
+                        ? (location.pathname === item.path || location.pathname === item.path + '/')
+                        : (item.path.includes('?tab=')
+                            ? location.pathname + location.search === item.path
+                            : (location.pathname === item.path || location.pathname.startsWith(item.path + '/')));
 
                     return (
                       <NavLink
                         key={item.id}
-                        to={item.path}
+                        to={itemPath}
                         onClick={onClose}
                         className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${
                           isMatch
