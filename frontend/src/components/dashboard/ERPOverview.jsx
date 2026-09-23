@@ -86,11 +86,11 @@ export default function ERPOverview() {
         <div className="flex items-center gap-2 text-xs">
           <span className="flex items-center gap-1 text-emerald-700 font-semibold px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            PH4 Active
+            Kho & Vật tư: Active
           </span>
           <span className="flex items-center gap-1 text-amber-700 font-semibold px-2 py-0.5 rounded bg-amber-50 border border-amber-200">
             <Clock className="w-3.5 h-3.5" />
-            PH1,2,3,5 Ready
+            Các phân hệ sẵn sàng
           </span>
         </div>
       </div>
@@ -133,7 +133,9 @@ export default function ERPOverview() {
                   <Icon className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-[11px] font-bold text-gray-500">{step.id}</div>
+                  {step.id !== 'PH3' && step.id !== 'PH4' && (
+                    <div className="text-[11px] font-bold text-gray-500">{step.id}</div>
+                  )}
                   <h3 className="text-xs font-bold text-gray-900 leading-tight truncate">
                     {step.title}
                   </h3>

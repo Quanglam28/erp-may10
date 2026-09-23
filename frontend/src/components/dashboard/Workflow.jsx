@@ -15,10 +15,10 @@ import {
 const WORKFLOW_STEPS = [
   { id: 1, name: 'Đơn hàng', icon: FileText, code: 'PH1 Kinh doanh' },
   { id: 2, name: 'Kế hoạch sản xuất', icon: CalendarDays, code: 'PH2 Kế hoạch' },
-  { id: 3, name: 'Mua NPL', icon: ShoppingCart, code: 'PH3 Mua hàng' },
-  { id: 4, name: 'Nhập kho & NPL', icon: Warehouse, code: 'PH4 Đang chạy', isActive: true },
+  { id: 3, name: 'Mua NPL', icon: ShoppingCart, code: 'Mua hàng' },
+  { id: 4, name: 'Nhập kho & NPL', icon: Warehouse, code: 'Đang chạy', isActive: true },
   { id: 5, name: 'Chuyền may', icon: Factory, code: 'PH2 Sản xuất' },
-  { id: 6, name: 'Xuất kho TP', icon: PackageCheck, code: 'PH4 Thành phẩm' },
+  { id: 6, name: 'Xuất kho TP', icon: PackageCheck, code: 'Thành phẩm' },
   { id: 7, name: 'Tài chính', icon: Calculator, code: 'PH5 Định khoản' },
   { id: 8, name: 'Báo cáo & BI', icon: BarChart3, code: 'Điều hành' },
 ];

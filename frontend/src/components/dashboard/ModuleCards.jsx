@@ -72,9 +72,11 @@ export default function ModuleCards() {
               <div>
                 {/* Header: Module Code & Status Badge */}
                 <div className="flex items-center justify-between gap-1.5 mb-2.5">
-                  <span className="text-xs font-bold text-[#172033] font-mono">
-                    {mod.id}
-                  </span>
+                  {mod.id !== 'PH3' && mod.id !== 'PH4' ? (
+                    <span className="text-xs font-bold text-[#172033] font-mono">
+                      {mod.id}
+                    </span>
+                  ) : <span />}
 
                   <span
                     className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${

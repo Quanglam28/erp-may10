@@ -37,7 +37,7 @@ export default function Hero() {
           </span>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            PH4 Kho & Vật tư: Ready & Frozen
+            Kho & Vật tư: Ready & Frozen
           </span>
         </div>
 
@@ -58,7 +58,7 @@ export default function Hero() {
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-white text-may10-primary hover:bg-red-50 transition-all shadow-lg hover:shadow-xl transform active:scale-95"
           >
             <Warehouse className="w-4 h-4" />
-            <span>Truy cập PH4 — Kho & Quản lý vật tư</span>
+            <span>Truy cập Kho & Quản lý vật tư</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
 
@@ -84,7 +84,7 @@ export default function Hero() {
             <div className="text-gray-300 text-[11px]">Phân hệ hoạt động</div>
             <div className="font-bold text-emerald-300 text-sm mt-0.5 flex items-center gap-1">
               <Layers className="w-3.5 h-3.5" />
-              PH4 Sẵn sàng 100%
+              Kho & Vật tư sẵn sàng
             </div>
           </div>
           <div>

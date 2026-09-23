@@ -94,7 +94,6 @@ export default function PurchasingModule() {
     <div className="space-y-4">
       {/* Module Header aligned with Global UI V2.11 */}
       <ModuleHeader
-        code="PH3"
         title="Mua Hàng & Quản Lý Nhà Cung Cấp"
         description="Quản lý mạng lưới nhà cung cấp bông sợi vải, lập PR, RFQ so sánh NCC, phát hành PO, kiểm nghiệm và tiếp nhận nhập kho May 10"
         badgeText="Đang vận hành"

@@ -73,7 +73,6 @@ export default function WarehouseModule() {
     <div className="space-y-4">
       {/* Module Header aligned with Core V2.11 */}
       <ModuleHeader
-        code="PH4"
         title="Kho & Quản lý vật tư"
         description="Quản lý số dư tồn kho, vị trí kệ, theo dõi lô vật tư và quy trình xuất - nhập - điều chuyển - kiểm kê"
         badgeText="Đang vận hành"
