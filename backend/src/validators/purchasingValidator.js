@@ -8,11 +8,27 @@
  */
 function validateSupplierInput(body, isUpdate = false) {
   const errors = [];
-  const { ten_nha_cung_cap, dia_chi, so_dien_thoai, email, nguoi_lien_he, han_muc_tin_dung, so_ngay_gia_han, diem_danh_gia } = body;
+  const { ten_nha_cung_cap, ma_so_thue, so_gpkd, dia_chi, so_dien_thoai, email, nguoi_lien_he, han_muc_tin_dung, so_ngay_gia_han, diem_danh_gia } = body;
 
   if (!isUpdate || ten_nha_cung_cap !== undefined) {
     if (!ten_nha_cung_cap || typeof ten_nha_cung_cap !== 'string' || !ten_nha_cung_cap.trim()) {
       errors.push('Tên nhà cung cấp (ten_nha_cung_cap) là bắt buộc và không được để trống.');
+    }
+  }
+
+  if (!isUpdate || ma_so_thue !== undefined) {
+    if (!ma_so_thue || typeof ma_so_thue !== 'string' || !ma_so_thue.trim()) {
+      errors.push('Mã số thuế (ma_so_thue) là bắt buộc và không được để trống.');
+    } else if (!/^[0-9]{10}(-[0-9]{3})?$|^[0-9]{13}$/.test(ma_so_thue.trim())) {
+      errors.push('Mã số thuế (ma_so_thue) không đúng định dạng hợp lệ (chuẩn 10 số hoặc 13 số, VD: 0101234567 hoặc 0101234567-001).');
+    }
+  }
+
+  if (!isUpdate || so_gpkd !== undefined) {
+    if (!so_gpkd || typeof so_gpkd !== 'string' || !so_gpkd.trim()) {
+      errors.push('Số giấy phép kinh doanh / ĐKKD (so_gpkd) là bắt buộc và không được để trống.');
+    } else if (!/^[A-Za-z0-9\-_]{5,30}$/.test(so_gpkd.trim())) {
+      errors.push('Số giấy phép kinh doanh / ĐKKD (so_gpkd) phải từ 5-30 ký tự (chỉ bao gồm chữ cái, chữ số, gạch nối).');
     }
   }
 
@@ -25,8 +41,11 @@ function validateSupplierInput(body, isUpdate = false) {
   if (!isUpdate || so_dien_thoai !== undefined) {
     if (!so_dien_thoai || typeof so_dien_thoai !== 'string' || !so_dien_thoai.trim()) {
       errors.push('Số điện thoại (so_dien_thoai) là bắt buộc.');
-    } else if (!/^[0-9+()\-.\s]{7,20}$/.test(so_dien_thoai.trim())) {
-      errors.push('Số điện thoại không đúng định dạng hợp lệ.');
+    } else {
+      const cleanPhone = so_dien_thoai.trim().replace(/[\s.-]/g, '');
+      if (!/^(0|\+84)(2[0-9]{8,9}|[35789][0-9]{8})$/.test(cleanPhone)) {
+        errors.push('Số điện thoại (so_dien_thoai) không đúng định dạng số điện thoại Việt Nam hợp lệ (VD: 0912345678, 0283896012).');
+      }
     }
   }
 

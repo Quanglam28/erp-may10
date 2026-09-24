@@ -37,9 +37,9 @@ ON CONFLICT (id) DO NOTHING;
 SELECT setval('kho_id_seq', (SELECT MAX(id) FROM kho));
 
 -- 4. NHA_CUNG_CAP (Tối thiểu 2 nhà cung cấp)
-INSERT INTO nha_cung_cap (id, ma_nha_cung_cap, ten_nha_cung_cap, ma_so_thue, dia_chi, quoc_gia, nguoi_lien_he, so_dien_thoai, email, loai_hang_cung_cap, han_muc_tin_dung, so_ngay_gia_han, diem_danh_gia, trang_thai, nguoi_tao) VALUES
-(1, 'NCC001', 'Công Ty Cổ Phần Dệt May Phong Phú', '0301456789', 'Khu CN Phong Phú, TP. Thủ Đức, TP. Hồ Chí Minh', 'Viet Nam', 'Đỗ Mạnh Cường', '0283896012', 'sales@phongphu.com.vn', 'Vải dệt thoi, vải kate, poplin', 2000000000.00, 45, 9.2, 'hoat_dong', 4),
-(2, 'NCC002', 'Công Ty TNHH Phụ Liệu May Thăng Long', '0105678901', 'Cụm CN Duyên Thái, Thường Tín, Hà Nội', 'Viet Nam', 'Trịnh Thị Mai', '0243867123', 'contact@thanglongacc.vn', 'Chỉ may, cúc áo, mex, nhãn mác', 500000000.00, 30, 8.8, 'hoat_dong', 4)
+INSERT INTO nha_cung_cap (id, ma_nha_cung_cap, ten_nha_cung_cap, ma_so_thue, so_gpkd, dia_chi, quoc_gia, nguoi_lien_he, so_dien_thoai, email, loai_hang_cung_cap, han_muc_tin_dung, so_ngay_gia_han, diem_danh_gia, trang_thai, nguoi_tao) VALUES
+(1, 'NCC001', 'Công Ty Cổ Phần Dệt May Phong Phú', '0301456789', '0301456789-GP', 'Khu CN Phong Phú, TP. Thủ Đức, TP. Hồ Chí Minh', 'Viet Nam', 'Đỗ Mạnh Cường', '0283896012', 'sales@phongphu.com.vn', 'Vải dệt thoi, vải kate, poplin', 2000000000.00, 45, 9.2, 'hoat_dong', 4),
+(2, 'NCC002', 'Công Ty TNHH Phụ Liệu May Thăng Long', '0105678901', '0105678901-GP', 'Cụm CN Duyên Thái, Thường Tín, Hà Nội', 'Viet Nam', 'Trịnh Thị Mai', '0243867123', 'contact@thanglongacc.vn', 'Chỉ may, cúc áo, mex, nhãn mác', 500000000.00, 30, 8.8, 'hoat_dong', 4)
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('nha_cung_cap_id_seq', (SELECT MAX(id) FROM nha_cung_cap));

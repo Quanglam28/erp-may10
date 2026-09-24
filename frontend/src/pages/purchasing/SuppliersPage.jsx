@@ -183,8 +183,52 @@ export default function SuppliersPage({ showToast }) {
     }
   };
 
+  const validateSupplierForm = () => {
+    const errors = [];
+    const cleanTax = (formData.ma_so_thue || '').trim();
+    if (!cleanTax) {
+      errors.push('Mã số thuế là bắt buộc.');
+    } else if (!/^[0-9]{10}(-[0-9]{3})?$|^[0-9]{13}$/.test(cleanTax)) {
+      errors.push('Mã số thuế không đúng định dạng (chuẩn 10 số hoặc 13 số, VD: 0101234567 hoặc 0101234567-001).');
+    }
+
+    const cleanGpkd = (formData.so_gpkd || '').trim();
+    if (!cleanGpkd) {
+      errors.push('Số GPKD / ĐKKD là bắt buộc.');
+    } else if (!/^[A-Za-z0-9\-_]{5,30}$/.test(cleanGpkd)) {
+      errors.push('Số GPKD / ĐKKD phải từ 5-30 ký tự (chữ cái, chữ số, gạch nối).');
+    }
+
+    const cleanPhone = (formData.so_dien_thoai || '').trim().replace(/[\s.-]/g, '');
+    if (!cleanPhone) {
+      errors.push('Số điện thoại là bắt buộc.');
+    } else if (!/^(0|\+84)(2[0-9]{8,9}|[35789][0-9]{8})$/.test(cleanPhone)) {
+      errors.push('Số điện thoại không đúng định dạng Việt Nam hợp lệ (VD: 0912345678, 0283896012).');
+    }
+
+    if (!formData.ten_nha_cung_cap?.trim()) {
+      errors.push('Tên nhà cung cấp là bắt buộc.');
+    }
+    if (!formData.dia_chi?.trim()) {
+      errors.push('Địa chỉ trụ sở là bắt buộc.');
+    }
+    if (!formData.nguoi_lien_he?.trim()) {
+      errors.push('Người đại diện liên hệ là bắt buộc.');
+    }
+    if (!formData.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      errors.push('Email giao dịch không đúng định dạng hợp lệ.');
+    }
+
+    return errors;
+  };
+
   const handleCreateSupplier = async (e) => {
     e.preventDefault();
+    const clientErrors = validateSupplierForm();
+    if (clientErrors.length > 0) {
+      setFormErrors(clientErrors);
+      return;
+    }
     setSubmitting(true);
     setFormErrors([]);
     try {
@@ -212,6 +256,11 @@ export default function SuppliersPage({ showToast }) {
   const handleUpdateSupplier = async (e) => {
     e.preventDefault();
     if (!selectedSupplier) return;
+    const clientErrors = validateSupplierForm();
+    if (clientErrors.length > 0) {
+      setFormErrors(clientErrors);
+      return;
+    }
     setSubmitting(true);
     setFormErrors([]);
     try {
@@ -504,25 +553,33 @@ export default function SuppliersPage({ showToast }) {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Mã số thuế</label>
+                    <label className="block font-semibold text-slate-700 mb-1">Mã số thuế *</label>
                     <input
                       type="text"
+                      required
                       placeholder="0101234567"
+                      pattern="[0-9]{10}(-[0-9]{3})?|[0-9]{13}"
+                      title="Mã số thuế gồm 10 số (doanh nghiệp) hoặc 13 số (chi nhánh). Ví dụ: 0101234567 hoặc 0101234567-001"
                       value={formData.ma_so_thue}
                       onChange={(e) => setFormData({ ...formData, ma_so_thue: e.target.value })}
                       className="w-full p-2 rounded-xl border border-slate-200 focus:outline-none focus:border-[#0F5FAF]"
                     />
+                    <p className="text-[10px] text-slate-400 mt-0.5">10 hoặc 13 chữ số (VD: 0101234567, 0101234567-001)</p>
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Số GPKD / ĐKKD</label>
+                    <label className="block font-semibold text-slate-700 mb-1">Số GPKD / ĐKKD *</label>
                     <input
                       type="text"
+                      required
                       placeholder="0101234567-GP"
+                      pattern="[A-Za-z0-9\-_]{5,30}"
+                      title="Số giấy phép kinh doanh / ĐKKD từ 5-30 ký tự"
                       value={formData.so_gpkd}
                       onChange={(e) => setFormData({ ...formData, so_gpkd: e.target.value })}
                       className="w-full p-2 rounded-xl border border-slate-200 focus:outline-none focus:border-[#0F5FAF]"
                     />
+                    <p className="text-[10px] text-slate-400 mt-0.5">Chữ, số, gạch nối (VD: 0101234567-GP)</p>
                   </div>
 
                   <div>
@@ -540,13 +597,16 @@ export default function SuppliersPage({ showToast }) {
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Số điện thoại *</label>
                     <input
-                      type="text"
+                      type="tel"
                       required
                       placeholder="0912345678"
+                      pattern="^(0|\+84)(2[0-9]{8,9}|[35789][0-9]{8})$"
+                      title="Số điện thoại di động (10 số, đầu 03, 05, 07, 08, 09) hoặc cố định (đầu 02)"
                       value={formData.so_dien_thoai}
                       onChange={(e) => setFormData({ ...formData, so_dien_thoai: e.target.value })}
                       className="w-full p-2 rounded-xl border border-slate-200 focus:outline-none focus:border-[#0F5FAF]"
                     />
+                    <p className="text-[10px] text-slate-400 mt-0.5">Định dạng VN 10 số (VD: 0912345678, 0283896012)</p>
                   </div>
 
                   <div>

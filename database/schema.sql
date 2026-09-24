@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS nha_cung_cap (
     ma_nha_cung_cap VARCHAR(50) UNIQUE NOT NULL,
     ten_nha_cung_cap VARCHAR(200) NOT NULL,
     ma_so_thue VARCHAR(20),
+    so_gpkd VARCHAR(50) UNIQUE,
     dia_chi TEXT NOT NULL,
     quoc_gia VARCHAR(100) DEFAULT 'Viet Nam',
     nguoi_lien_he VARCHAR(150) NOT NULL,

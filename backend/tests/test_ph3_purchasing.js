@@ -378,18 +378,25 @@ async function runAllPurchasingTests() {
 
   try {
     // -------------------------------------------------------------------------
-    // TEST 1: Create supplier (Tạo mới nhà cung cấp)
+    // TEST 1: Create supplier (Tạo mới nhà cung cấp hợp lệ - Tiêu chí A, D, G)
     // -------------------------------------------------------------------------
-    console.log('1. TEST 1: Create supplier (Tạo nhà cung cấp mới):');
-    const supCode = `NCC-TEST-${Date.now().toString().slice(-4)}`;
+    console.log('1. TEST 1: Create supplier (Tạo nhà cung cấp mới với MST, GPKD, SĐT hợp lệ):');
+    const supSuffix = Date.now().toString().slice(-8);
+    const supCode = `NCC-TEST-${supSuffix.slice(-4)}`;
+    const validMst = `03${supSuffix}`;
+    const validGpkd = `GP-${supSuffix}`;
+    const validPhone = `09${supSuffix}`;
+
     const createSupRes = await request(
       '/api/v1/purchasing/suppliers',
       'POST',
       {
         ma_nha_cung_cap: supCode,
         ten_nha_cung_cap: 'Công Ty Cung Cấp Vải Sợi Sài Gòn',
+        ma_so_thue: validMst,
+        so_gpkd: validGpkd,
         dia_chi: '123 Đường Cộng Hòa, Q. Tân Bình, TP.HCM',
-        so_dien_thoai: '0987654321',
+        so_dien_thoai: validPhone,
         email: 'sales@saisoil.vn',
         nguoi_lien_he: 'Vũ Đức Đam',
         loai_hang_cung_cap: 'Vải cotton, sợi dệt',
@@ -400,10 +407,184 @@ async function runAllPurchasingTests() {
       tokenMuaHang
     );
 
-    assert(createSupRes.status === 201, `Tạo NCC trả về HTTP 201 Created (Nhận ${createSupRes.status})`);
+    assert(createSupRes.status === 201, `Tạo NCC hợp lệ trả về HTTP 201 Created (Nhận ${createSupRes.status})`);
     assert(createSupRes.data?.data?.ma_nha_cung_cap === supCode, `Mã NCC đúng: ${supCode}`);
     assert(createSupRes.data?.data?.trang_thai === 'hoat_dong', 'Trạng thái NCC ban đầu: hoat_dong');
     createdSupplierId = createSupRes.data?.data?.id;
+
+    // -------------------------------------------------------------------------
+    // TEST 1B: Ràng buộc Nhà cung cấp (MST, GPKD, SĐT - Tiêu chí B -> K)
+    // -------------------------------------------------------------------------
+    console.log('\n1B. TEST 1B: Kiểm tra bộ ràng buộc toàn diện Nhà cung cấp (B -> K):');
+
+    // B. MST sai format -> 400
+    const invalidMstRes = await request(
+      '/api/v1/purchasing/suppliers',
+      'POST',
+      {
+        ma_nha_cung_cap: `NCC-ERR-MST-${Date.now().toString().slice(-4)}`,
+        ten_nha_cung_cap: 'NCC Sai MST',
+        ma_so_thue: '12345ABC', // Sai format
+        so_gpkd: `GP-ERR-${Date.now().toString().slice(-4)}`,
+        dia_chi: 'Hà Nội',
+        so_dien_thoai: `09${Date.now().toString().slice(-8)}`,
+        email: 'test@mst.vn',
+        nguoi_lien_he: 'Test MST',
+      },
+      tokenMuaHang
+    );
+    assert(invalidMstRes.status === 400, `[Tiêu chí B] MST sai format trả về HTTP 400 (Nhận ${invalidMstRes.status})`);
+
+    // C. MST trùng -> 409
+    const dupMstRes = await request(
+      '/api/v1/purchasing/suppliers',
+      'POST',
+      {
+        ma_nha_cung_cap: `NCC-DUP-MST-${Date.now().toString().slice(-4)}`,
+        ten_nha_cung_cap: 'NCC Trùng MST',
+        ma_so_thue: validMst, // Trùng với TEST 1
+        so_gpkd: `GP-DUP-${Date.now().toString().slice(-6)}`,
+        dia_chi: 'Hà Nội',
+        so_dien_thoai: `09${(parseInt(supSuffix) + 1).toString().slice(-8)}`,
+        email: 'test2@mst.vn',
+        nguoi_lien_he: 'Test DUP MST',
+      },
+      tokenMuaHang
+    );
+    assert(dupMstRes.status === 409, `[Tiêu chí C] MST trùng lặp trả về HTTP 409 Conflict (Nhận ${dupMstRes.status})`);
+
+    // E. GPKD sai format -> 400
+    const invalidGpkdRes = await request(
+      '/api/v1/purchasing/suppliers',
+      'POST',
+      {
+        ma_nha_cung_cap: `NCC-ERR-GP-${Date.now().toString().slice(-4)}`,
+        ten_nha_cung_cap: 'NCC Sai GPKD',
+        ma_so_thue: `03${(parseInt(supSuffix) + 2).toString().slice(-8)}`,
+        so_gpkd: '12', // Quá ngắn (< 5 ký tự)
+        dia_chi: 'Đà Nẵng',
+        so_dien_thoai: `09${(parseInt(supSuffix) + 2).toString().slice(-8)}`,
+        email: 'test@gpkd.vn',
+        nguoi_lien_he: 'Test GPKD',
+      },
+      tokenMuaHang
+    );
+    assert(invalidGpkdRes.status === 400, `[Tiêu chí E] GPKD sai format trả về HTTP 400 (Nhận ${invalidGpkdRes.status})`);
+
+    // F. GPKD trùng -> 409
+    const dupGpkdRes = await request(
+      '/api/v1/purchasing/suppliers',
+      'POST',
+      {
+        ma_nha_cung_cap: `NCC-DUP-GP-${Date.now().toString().slice(-4)}`,
+        ten_nha_cung_cap: 'NCC Trùng GPKD',
+        ma_so_thue: `03${(parseInt(supSuffix) + 3).toString().slice(-8)}`,
+        so_gpkd: validGpkd, // Trùng với TEST 1
+        dia_chi: 'Hải Phòng',
+        so_dien_thoai: `09${(parseInt(supSuffix) + 3).toString().slice(-8)}`,
+        email: 'test3@gpkd.vn',
+        nguoi_lien_he: 'Test DUP GPKD',
+      },
+      tokenMuaHang
+    );
+    assert(dupGpkdRes.status === 409, `[Tiêu chí F] GPKD trùng lặp trả về HTTP 409 Conflict (Nhận ${dupGpkdRes.status})`);
+
+    // H. SĐT sai format -> 400
+    const invalidPhoneRes = await request(
+      '/api/v1/purchasing/suppliers',
+      'POST',
+      {
+        ma_nha_cung_cap: `NCC-ERR-TEL-${Date.now().toString().slice(-4)}`,
+        ten_nha_cung_cap: 'NCC Sai SĐT',
+        ma_so_thue: `03${(parseInt(supSuffix) + 4).toString().slice(-8)}`,
+        so_gpkd: `GP-TEL-${Date.now().toString().slice(-6)}`,
+        dia_chi: 'Cần Thơ',
+        so_dien_thoai: '1234567890', // Không khớp đầu số VN
+        email: 'test@tel.vn',
+        nguoi_lien_he: 'Test Phone',
+      },
+      tokenMuaHang
+    );
+    assert(invalidPhoneRes.status === 400, `[Tiêu chí H] SĐT sai format trả về HTTP 400 (Nhận ${invalidPhoneRes.status})`);
+
+    // I. SĐT trùng -> 409
+    const dupPhoneRes = await request(
+      '/api/v1/purchasing/suppliers',
+      'POST',
+      {
+        ma_nha_cung_cap: `NCC-DUP-TEL-${Date.now().toString().slice(-4)}`,
+        ten_nha_cung_cap: 'NCC Trùng SĐT',
+        ma_so_thue: `03${(parseInt(supSuffix) + 5).toString().slice(-8)}`,
+        so_gpkd: `GP-DUPTEL-${Date.now().toString().slice(-5)}`,
+        dia_chi: 'Bình Dương',
+        so_dien_thoai: validPhone, // Trùng với TEST 1
+        email: 'test4@tel.vn',
+        nguoi_lien_he: 'Test DUP Phone',
+      },
+      tokenMuaHang
+    );
+    assert(dupPhoneRes.status === 409, `[Tiêu chí I] SĐT trùng lặp trả về HTTP 409 Conflict (Nhận ${dupPhoneRes.status})`);
+
+    // J. Update supplier với chính MST/GPKD/SĐT của nó -> 200 OK (không báo duplicate)
+    const updateSelfRes = await request(
+      `/api/v1/purchasing/suppliers/${createdSupplierId}`,
+      'PUT',
+      {
+        ten_nha_cung_cap: 'Công Ty Cung Cấp Vải Sợi Sài Gòn (Updated)',
+        ma_so_thue: validMst,
+        so_gpkd: validGpkd,
+        so_dien_thoai: validPhone,
+      },
+      tokenMuaHang
+    );
+    assert(updateSelfRes.status === 200, `[Tiêu chí J] Update chính mình không báo duplicate (Nhận ${updateSelfRes.status})`);
+
+    // Tạo supplier thứ hai để test tiêu chí K
+    const sup2Suffix = (parseInt(supSuffix) + 10).toString().slice(-8);
+    const createSup2Res = await request(
+      '/api/v1/purchasing/suppliers',
+      'POST',
+      {
+        ma_nha_cung_cap: `NCC-TEST2-${sup2Suffix.slice(-4)}`,
+        ten_nha_cung_cap: 'Nhà cung cấp đối chiếu 2',
+        ma_so_thue: `03${sup2Suffix}`,
+        so_gpkd: `GP-2-${sup2Suffix}`,
+        dia_chi: 'Bắc Ninh',
+        so_dien_thoai: `09${sup2Suffix}`,
+        email: 'ncc2@may10.vn',
+        nguoi_lien_he: 'Trần Văn Hai',
+      },
+      tokenMuaHang
+    );
+    assert(createSup2Res.status === 201, 'Tạo NCC thứ 2 để đối chiếu tiêu chí K thành công');
+    const sup2Id = createSup2Res.data?.data?.id;
+
+    // K1. Update supplier 2 sang MST của supplier 1 -> 409
+    const updateDupMstRes = await request(
+      `/api/v1/purchasing/suppliers/${sup2Id}`,
+      'PUT',
+      { ma_so_thue: validMst },
+      tokenMuaHang
+    );
+    assert(updateDupMstRes.status === 409, `[Tiêu chí K1] Update sang MST của NCC khác trả về 409 Conflict (Nhận ${updateDupMstRes.status})`);
+
+    // K2. Update supplier 2 sang GPKD của supplier 1 -> 409
+    const updateDupGpkdRes = await request(
+      `/api/v1/purchasing/suppliers/${sup2Id}`,
+      'PUT',
+      { so_gpkd: validGpkd },
+      tokenMuaHang
+    );
+    assert(updateDupGpkdRes.status === 409, `[Tiêu chí K2] Update sang GPKD của NCC khác trả về 409 Conflict (Nhận ${updateDupGpkdRes.status})`);
+
+    // K3. Update supplier 2 sang SĐT của supplier 1 -> 409
+    const updateDupPhoneRes = await request(
+      `/api/v1/purchasing/suppliers/${sup2Id}`,
+      'PUT',
+      { so_dien_thoai: validPhone },
+      tokenMuaHang
+    );
+    assert(updateDupPhoneRes.status === 409, `[Tiêu chí K3] Update sang SĐT của NCC khác trả về 409 Conflict (Nhận ${updateDupPhoneRes.status})`);
 
     // -------------------------------------------------------------------------
     // TEST 2: Create PO (Tạo mới đơn mua hàng kèm chi tiết vật tư)
