@@ -49,6 +49,9 @@ export const createProductionOrder = (data) =>
 export const startProductionOrder = (id) =>
   api.post(`/production/orders/${id}/start`).then((res) => res.data);
 
+export const pauseProductionOrder = (id) =>
+  api.post(`/production/orders/${id}/pause`).then((res) => res.data);
+
 export const getOrderStages = (orderId) =>
   api.get(`/production/orders/${orderId}/stages`).then((res) => res.data.data);
 

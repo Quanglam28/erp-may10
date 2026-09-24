@@ -35,6 +35,7 @@ router.get('/orders', requireRoles('san_xuat', 'admin', 'kho'), productionContro
 router.post('/orders', requireRoles('san_xuat', 'admin'), productionController.createOrder);
 router.get('/orders/:id', requireRoles('san_xuat', 'admin', 'kho'), productionController.getOrderById);
 router.post('/orders/:id/start', requireRoles('san_xuat', 'admin'), productionController.startOrder);
+router.post('/orders/:id/pause', requireRoles('san_xuat', 'admin'), productionController.pauseOrder);
 
 // 5. Hoạch định nhu cầu NVL (MRP)
 router.get('/mrp', requireRoles('san_xuat', 'admin'), productionController.getMrp);

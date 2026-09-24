@@ -816,6 +816,51 @@ async function startOrder(req, res) {
   }
 }
 
+async function pauseOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const current = await db.query(`SELECT * FROM lenh_san_xuat WHERE id = $1`, [id]);
+    if (!current.rows.length) {
+      return res.status(404).json({
+        success: false,
+        errorCode: 'NOT_FOUND',
+        message: 'Không tìm thấy lệnh sản xuất.',
+      });
+    }
+
+    const order = current.rows[0];
+    const resume = order.trang_thai === 'tam_dung';
+    if (!resume && order.trang_thai !== 'dang_san_xuat') {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'INVALID_STATUS',
+        message: 'Chỉ lệnh sản xuất đã bắt đầu mới được tạm dừng.',
+      });
+    }
+
+    const newStatus = resume ? 'dang_san_xuat' : 'tam_dung';
+    const updated = await db.query(
+      `UPDATE lenh_san_xuat SET trang_thai = $1, ngay_cap_nhat = NOW() WHERE id = $2 RETURNING *`,
+      [newStatus, id]
+    );
+
+    return res.json({
+      success: true,
+      message: resume
+        ? `Đã tiếp tục lệnh sản xuất [${order.ma_lenh_san_xuat}].`
+        : `Đã tạm dừng lệnh sản xuất [${order.ma_lenh_san_xuat}].`,
+      data: updated.rows[0],
+    });
+  } catch (err) {
+    console.error('[ProductionController.pauseOrder Error]:', err);
+    return res.status(500).json({
+      success: false,
+      errorCode: 'INTERNAL_ERROR',
+      message: 'Lỗi khi tạm dừng/tiếp tục lệnh sản xuất.',
+    });
+  }
+}
+
 // 5. Hoạch định nhu cầu NVL (MRP)
 async function calculateMrpInternal(planId = null) {
   // Lấy tất cả KHSX đang hoạt động (da_duyet, dang_thuc_hien, tam_dung)
@@ -1283,6 +1328,7 @@ module.exports = {
   getOrderById,
   createOrder,
   startOrder,
+  pauseOrder,
   getMrp,
   getMrpStockByMaterial,
   createPurchaseRequestFromMrp,

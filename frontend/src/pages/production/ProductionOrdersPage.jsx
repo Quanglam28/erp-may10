@@ -8,11 +8,13 @@ import {
   Filter,
   Eye,
   Calendar,
+  PauseCircle,
 } from 'lucide-react';
 import {
   getProductionOrders,
   createProductionOrder,
   startProductionOrder,
+  pauseProductionOrder,
   getProductionPlans,
 } from '../../services/productionService';
 
@@ -108,6 +110,28 @@ export default function ProductionOrdersPage({ showToast }) {
       fetchData();
     } catch (err) {
       if (showToast) showToast({ type: 'error', message: err.response?.data?.message || 'Lỗi khởi động LSX.' });
+    }
+  };
+
+  const handlePauseOrder = async (order) => {
+    const code = order.ma_lenh_san_xuat || order.ma_lenh;
+    const isPaused = order.trang_thai === 'tam_dung';
+    try {
+      await pauseProductionOrder(order.id);
+      if (showToast) {
+        showToast({
+          type: 'success',
+          message: isPaused ? `Đã tiếp tục lệnh sản xuất [${code}].` : `Đã tạm dừng lệnh sản xuất [${code}].`,
+        });
+      }
+      fetchData();
+    } catch (err) {
+      if (showToast) {
+        showToast({
+          type: 'error',
+          message: err.response?.data?.message || 'Không thể cập nhật trạng thái lệnh sản xuất.',
+        });
+      }
     }
   };
 
@@ -233,6 +257,16 @@ export default function ProductionOrdersPage({ showToast }) {
                           >
                             <Play className="w-3.5 h-3.5" />
                             <span>Bắt đầu</span>
+                          </button>
+                        )}
+                        {['dang_san_xuat', 'tam_dung'].includes(ord.trang_thai) && (
+                          <button
+                            onClick={() => handlePauseOrder(ord)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 font-medium transition-colors"
+                            title={ord.trang_thai === 'tam_dung' ? 'Tiếp tục sản xuất' : 'Tạm dừng sản xuất'}
+                          >
+                            {ord.trang_thai === 'tam_dung' ? <Play className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                            <span>{ord.trang_thai === 'tam_dung' ? 'Tiếp tục' : 'Tạm dừng'}</span>
                           </button>
                         )}
                       </td>
