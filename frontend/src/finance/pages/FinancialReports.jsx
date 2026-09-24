@@ -15,23 +15,180 @@ const labelFromChoice = ({ mode, month, quarter, year }) => mode === 'month' ? `
 function PeriodSummaryChart({ report }) {
   const columns = [['Doanh thu', report.doanh_thu_thuan, 'blue'], ['Giá vốn', report.gia_von_hang_ban, 'orange'], ['Lợi nhuận trước thuế', report.loi_nhuan_truoc_thue, 'green'], ['Lợi nhuận sau thuế', report.loi_nhuan_sau_thue, 'indigo']];
   const maximum = Math.max(...columns.map(([, value]) => Math.abs(Number(value) || 0)), 1);
-  return <div className="period-column-chart"><aside>{[100, 75, 50, 25, 0].map((tick) => <span key={tick}>{tick ? billions(maximum * tick / 100).replace(' tỷ', '') : '0'}</span>)}</aside><section><div className="chart-grid">{[100, 75, 50, 25, 0].map((tick) => <i key={tick} />)}</div><div className="chart-columns">{columns.map(([label, value, tone]) => <div key={label}><strong>{billions(value)}</strong><span className="column-track"><i className={tone} style={{ height: `${Math.max(Math.abs(Number(value) || 0) / maximum * 100, 2)}%` }} title={`${label}: ${money(value)}`} /></span><small>{label}</small></div>)}</div></section><b>Đơn vị: tỷ VND</b></div>;
+  return (
+    <div className="period-column-chart">
+      <aside>{[100, 75, 50, 25, 0].map((tick) => <span key={tick}>{tick ? billions(maximum * tick / 100).replace(' tỷ', '') : '0'}</span>)}</aside>
+      <section>
+        <div className="chart-grid">{[100, 75, 50, 25, 0].map((tick) => <i key={tick} />)}</div>
+        <div className="chart-columns">
+          {columns.map(([label, value, tone]) => (
+            <div key={label}>
+              <strong>{billions(value)}</strong>
+              <span className="column-track">
+                <i className={tone} style={{ height: `${Math.max(Math.abs(Number(value) || 0) / maximum * 100, 3)}%` }} title={`${label}: ${money(value)}`} />
+              </span>
+              <small>{label === 'Lợi nhuận trước thuế' ? 'LNTT' : label === 'Lợi nhuận sau thuế' ? 'LNST' : label}</small>
+            </div>
+          ))}
+        </div>
+      </section>
+      <b>Đơn vị: tỷ VND</b>
+    </div>
+  );
 }
 
 function MultiPeriodTrend({ rows }) {
   if (!rows?.length) return null;
+  const isSingle = rows.length === 1;
   const maximum = Math.max(...rows.flatMap((item) => [Number(item.doanh_thu_thuan) || 0, Number(item.loi_nhuan_sau_thue) || 0]), 1);
-  const point = (item, index, key) => `${rows.length === 1 ? 50 : index * 100 / (rows.length - 1)},${100 - (Number(item[key]) || 0) / maximum * 82}`;
+  const point = (item, index, key) => `${isSingle ? 50 : index * 100 / (rows.length - 1)},${100 - (Number(item[key]) || 0) / maximum * 82}`;
   const revenuePoints = rows.map((item, index) => point(item, index, 'doanh_thu_thuan')).join(' ');
   const profitPoints = rows.map((item, index) => point(item, index, 'loi_nhuan_sau_thue')).join(' ');
-  return <article className="executive-card multi-period-trend"><header><div><h3>Xu hướng doanh thu và lợi nhuận</h3><p>Dữ liệu các snapshot KQKD đã lưu theo thời gian</p></div><div className="trend-legend"><span><i />Doanh thu</span><span><i />Lợi nhuận sau thuế</span></div></header><div className="trend-plot"><aside>{[100, 75, 50, 25, 0].map((tick) => <span key={tick}>{tick ? billions(maximum * tick / 100).replace(' tỷ', '') : '0'}</span>)}</aside><section><div className="trend-grid">{[1, 2, 3, 4, 5].map((line) => <i key={line} />)}</div><svg viewBox="0 0 100 104" preserveAspectRatio="none" role="img" aria-label="Xu hướng doanh thu và lợi nhuận sau thuế"><polyline className="revenue" points={revenuePoints} /><polyline className="profit" points={profitPoints} />{rows.map((item, index) => <g key={item.id}><circle className="revenue" cx={rows.length === 1 ? 50 : index * 100 / (rows.length - 1)} cy={100 - (Number(item.doanh_thu_thuan) || 0) / maximum * 82} r="1.25"><title>{item.period.label} · Doanh thu: {money(item.doanh_thu_thuan)}</title></circle><circle className="profit" cx={rows.length === 1 ? 50 : index * 100 / (rows.length - 1)} cy={100 - (Number(item.loi_nhuan_sau_thue) || 0) / maximum * 82} r="1.25"><title>{item.period.label} · LNST: {money(item.loi_nhuan_sau_thue)}</title></circle></g>)}</svg><div className="trend-labels">{rows.map((item) => <span key={item.id}>{item.ky_bao_cao}</span>)}</div></section></div></article>;
+
+  return (
+    <article className="executive-card multi-period-trend">
+      <header>
+        <div>
+          <h3>Xu hướng doanh thu và lợi nhuận</h3>
+          <p>Dữ liệu các snapshot KQKD đã lưu theo thời gian</p>
+        </div>
+        <div className="trend-legend">
+          <span><i className="revenue" />Doanh thu</span>
+          <span><i className="profit" />Lợi nhuận sau thuế</span>
+        </div>
+      </header>
+      {isSingle && (
+        <div className="single-snapshot-notice">
+          <Icon name="report" />
+          <span>Hiện hệ thống có dữ liệu snapshot cho 1 kỳ báo cáo ({rows[0].ky_bao_cao}).</span>
+        </div>
+      )}
+      <div className="trend-plot">
+        <aside>
+          {[100, 75, 50, 25, 0].map((tick) => (
+            <span key={tick}>{tick ? billions(maximum * tick / 100).replace(' tỷ', '') : '0'}</span>
+          ))}
+        </aside>
+        <section>
+          <div className="trend-grid">
+            {[1, 2, 3, 4, 5].map((line) => <i key={line} />)}
+          </div>
+          {isSingle && <div className="single-point-guide" style={{ left: '50%' }} />}
+          <svg viewBox="0 0 100 104" preserveAspectRatio="none" role="img" aria-label="Xu hướng doanh thu và lợi nhuận sau thuế">
+            {!isSingle && (
+              <>
+                <polyline className="revenue" points={revenuePoints} />
+                <polyline className="profit" points={profitPoints} />
+              </>
+            )}
+            {rows.map((item, index) => {
+              const cx = isSingle ? 50 : index * 100 / (rows.length - 1);
+              const cyRev = 100 - (Number(item.doanh_thu_thuan) || 0) / maximum * 82;
+              const cyProfit = 100 - (Number(item.loi_nhuan_sau_thue) || 0) / maximum * 82;
+              return (
+                <g key={item.id} className={isSingle ? 'single-snapshot-markers' : ''}>
+                  <circle className="revenue" cx={cx} cy={cyRev} r={isSingle ? 2.8 : 1.25}>
+                    <title>{item.period?.label || item.ky_bao_cao} · Doanh thu: {money(item.doanh_thu_thuan)}</title>
+                  </circle>
+                  <circle className="profit" cx={cx} cy={cyProfit} r={isSingle ? 2.8 : 1.25}>
+                    <title>{item.period?.label || item.ky_bao_cao} · LNST: {money(item.loi_nhuan_sau_thue)}</title>
+                  </circle>
+                </g>
+              );
+            })}
+          </svg>
+          <div className="trend-labels">
+            {isSingle ? (
+              <span style={{ margin: '0 auto', fontWeight: 700, color: '#1768ad' }}>
+                {rows[0].ky_bao_cao} ({rows[0].period?.label || rows[0].ky_bao_cao})
+              </span>
+            ) : (
+              rows.map((item) => <span key={item.id}>{item.ky_bao_cao}</span>)
+            )}
+          </div>
+        </section>
+      </div>
+      {isSingle && (
+        <div className="single-point-callout">
+          <div>
+            <span className="badge-revenue">Doanh thu: {money(rows[0].doanh_thu_thuan)} ({billions(rows[0].doanh_thu_thuan)})</span>
+            <span className="badge-profit">Lợi nhuận sau thuế: {money(rows[0].loi_nhuan_sau_thue)} ({billions(rows[0].loi_nhuan_sau_thue)})</span>
+          </div>
+        </div>
+      )}
+    </article>
+  );
 }
 
 function SamePeriodComparison({ comparison, current }) {
-  if (!comparison?.data) return <section className="same-period empty"><header><div><small>SO SÁNH CÙNG KỲ</small><h3>Chưa có dữ liệu cùng kỳ năm trước</h3></div><Icon name="report" /></header><p>Chưa có Báo cáo KQKD {comparison?.period?.label || 'cùng kỳ năm trước'} để thực hiện so sánh.</p></section>;
-  const previous = comparison.data, metrics = [['Doanh thu', 'doanh_thu_thuan'], ['Giá vốn', 'gia_von_hang_ban'], ['Lợi nhuận trước thuế', 'loi_nhuan_truoc_thue'], ['Lợi nhuận sau thuế', 'loi_nhuan_sau_thue']];
+  if (!comparison?.data) {
+    const currentLabel = current?.period?.label || 'Quý II / 2026';
+    const priorLabel = comparison?.period?.label || 'Quý II / 2025';
+    return (
+      <section className="executive-card same-period empty">
+        <header>
+          <div>
+            <small>SO SÁNH CÙNG KỲ</small>
+            <h3>Chưa có dữ liệu cùng kỳ năm trước</h3>
+          </div>
+          <span className="same-period-status-badge">
+            <Icon name="calendar" /> Chưa có dữ liệu
+          </span>
+        </header>
+        <div className="same-period-box-container">
+          <div className="comparison-period-box current">
+            <span className="period-box-label">Kỳ hiện tại</span>
+            <strong className="period-box-val">{currentLabel}</strong>
+            <span className="period-box-tag active">Đã có snapshot KQKD</span>
+          </div>
+          <div className="comparison-arrow-icon">
+            <Icon name="arrow" />
+          </div>
+          <div className="comparison-period-box prior">
+            <span className="period-box-label">Kỳ so sánh</span>
+            <strong className="period-box-val">{priorLabel}</strong>
+            <span className="period-box-tag empty">Chưa có snapshot</span>
+          </div>
+        </div>
+        <p className="same-period-explanation">
+          Dữ liệu so sánh sẽ hiển thị khi hệ thống có snapshot của kỳ tương ứng.
+        </p>
+      </section>
+    );
+  }
+  const previous = comparison.data;
+  const metrics = [
+    ['Doanh thu', 'doanh_thu_thuan'],
+    ['Giá vốn', 'gia_von_hang_ban'],
+    ['Lợi nhuận trước thuế', 'loi_nhuan_truoc_thue'],
+    ['Lợi nhuận sau thuế', 'loi_nhuan_sau_thue']
+  ];
   const maximum = Math.max(...metrics.flatMap(([, key]) => [Math.abs(Number(previous[key]) || 0), Math.abs(Number(current?.[key]) || 0)]), 1);
-  return <section className="same-period comparison-chart"><header><div><small>SO SÁNH CÙNG KỲ</small><h3>{comparison.period.label} và {current?.period?.label}</h3></div></header><div className="comparison-legend"><span><i />{comparison.period.label}</span><span><i />{current?.period?.label}</span></div><div className="comparison-columns">{metrics.map(([label, key]) => <div key={key}><section><i style={{ height: `${Math.abs(Number(previous[key]) || 0) / maximum * 100}%` }} title={`${comparison.period.label}: ${money(previous[key])}`} /><i style={{ height: `${Math.abs(Number(current?.[key]) || 0) / maximum * 100}%` }} title={`${current?.period?.label}: ${money(current?.[key])}`} /></section><small>{label === 'Lợi nhuận trước thuế' ? 'LNTT' : label === 'Lợi nhuận sau thuế' ? 'LNST' : label}</small></div>)}</div></section>;
+  return (
+    <section className="executive-card same-period comparison-chart">
+      <header>
+        <div>
+          <small>SO SÁNH CÙNG KỲ</small>
+          <h3>{comparison.period.label} và {current?.period?.label}</h3>
+        </div>
+      </header>
+      <div className="comparison-legend">
+        <span><i className="prior" />{comparison.period.label}</span>
+        <span><i className="current" />{current?.period?.label}</span>
+      </div>
+      <div className="comparison-columns">
+        {metrics.map(([label, key]) => (
+          <div key={key}>
+            <section>
+              <i style={{ height: `${Math.abs(Number(previous[key]) || 0) / maximum * 100}%` }} title={`${comparison.period.label}: ${money(previous[key])}`} />
+              <i style={{ height: `${Math.abs(Number(current?.[key]) || 0) / maximum * 100}%` }} title={`${current?.period?.label}: ${money(current?.[key])}`} />
+            </section>
+            <small>{label === 'Lợi nhuận trước thuế' ? 'LNTT' : label === 'Lợi nhuận sau thuế' ? 'LNST' : label}</small>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function OverviewDashboard({ result, loading, error, requestedLabel, trend }) {
@@ -40,22 +197,100 @@ function OverviewDashboard({ result, loading, error, requestedLabel, trend }) {
   if (!result?.data) return <section className="financial-empty compact"><span><Icon name="report" /></span><h2>Chưa có dữ liệu tài chính cho kỳ đã chọn.</h2><p>Không tìm thấy snapshot báo cáo cho {requestedLabel}.</p></section>;
   const report = result.data;
   const afterTaxMargin = Number(report.doanh_thu_thuan) ? Number(report.loi_nhuan_sau_thue) / Number(report.doanh_thu_thuan) * 100 : null;
-  return <section className="executive-dashboard">
-    <div className="executive-kpis">{[
-      ['Tổng doanh thu', 'doanh_thu_thuan', report.doanh_thu_thuan, 'blue', 'chart'],
-      ['Tổng giá vốn / chi phí', 'gia_von_hang_ban', report.gia_von_hang_ban, 'orange', 'wallet'],
-      ['Lợi nhuận trước thuế', 'loi_nhuan_truoc_thue', report.loi_nhuan_truoc_thue, 'green', 'arrow'],
-      ['Lợi nhuận sau thuế', 'loi_nhuan_sau_thue', report.loi_nhuan_sau_thue, 'indigo', 'check'],
-      ['Biên lợi nhuận', 'gross_margin', report.gross_margin, 'navy', 'report'],
-    ].map(([label, key, value, tone, icon], index) => { const prior = key === 'gross_margin' && result.comparison?.data ? Number(result.comparison.data.loi_nhuan_truoc_thue) / Number(result.comparison.data.doanh_thu_thuan) * 100 : result.comparison?.data?.[key]; const change = has(prior) && Number(prior) !== 0 ? (Number(value) - Number(prior)) / Math.abs(Number(prior)) * 100 : null; return <article className={tone} key={label}><header><small>{label}</small><span><Icon name={icon} /></span></header><strong>{index === 4 ? percent(value) : money(value)}</strong><p className={has(change) ? change >= 0 ? 'up' : 'down' : ''}>{has(change) ? `${change >= 0 ? '↑' : '↓'} ${percent(Math.abs(change))} · So với cùng kỳ` : 'Chưa có dữ liệu cùng kỳ'}</p></article>; })}</div>
-    <MultiPeriodTrend rows={trend} />
-    <div className="executive-grid top">
-      <article className="executive-card trend-card"><header><div><h3>Tổng quan kết quả tài chính</h3><p>So sánh các chỉ tiêu chính trong kỳ {report.period.label}</p></div><Icon name="chart" /></header><PeriodSummaryChart report={report} /></article>
-      <SamePeriodComparison comparison={result.comparison} current={report} />
-    </div>
-    <article className="executive-card executive-profitability horizontal"><header><div><h3>Khả năng sinh lời</h3><p>Tỷ suất được tính từ cùng snapshot báo cáo, không đánh giá tốt hoặc xấu.</p></div><Icon name="chart" /></header><div className="profitability-horizontal"><div className="executive-ring" style={{ '--value': `${Math.min(Math.max(Number(report.gross_margin) || 0, 0), 100) * 3.6}deg` }}><span><strong>{percent(report.gross_margin)}</strong><small>Biên LNTT</small></span></div><dl><div><dt>Biên lợi nhuận trước thuế</dt><dd>{percent(report.gross_margin)}</dd></div><div><dt>Biên lợi nhuận sau thuế</dt><dd>{percent(afterTaxMargin)}</dd></div></dl></div></article>
-    <article className="executive-card executive-structure"><header><div><h3>Cơ cấu doanh thu</h3><p>Giá vốn và lợi nhuận trước thuế trên doanh thu thuần</p></div></header><div className="revenue-stack"><i className="cost" style={{ width: `${Number(report.doanh_thu_thuan) ? Number(report.gia_von_hang_ban) / Number(report.doanh_thu_thuan) * 100 : 0}%` }} /><i className="profit" style={{ width: `${Number(report.doanh_thu_thuan) ? Number(report.loi_nhuan_truoc_thue) / Number(report.doanh_thu_thuan) * 100 : 0}%` }} /></div><div className="structure-values"><div><i className="cost" /><span>Giá vốn</span><strong>{money(report.gia_von_hang_ban)}</strong><small>{percent(Number(report.doanh_thu_thuan) ? Number(report.gia_von_hang_ban) / Number(report.doanh_thu_thuan) * 100 : null)}</small></div><div><i className="profit" /><span>Lợi nhuận trước thuế</span><strong>{money(report.loi_nhuan_truoc_thue)}</strong><small>{percent(report.gross_margin)}</small></div></div></article>
-  </section>;
+  return (
+    <section className="executive-dashboard">
+      <div className="executive-kpis">
+        {[
+          ['Tổng doanh thu', 'doanh_thu_thuan', report.doanh_thu_thuan, 'blue', 'chart'],
+          ['Tổng giá vốn / chi phí', 'gia_von_hang_ban', report.gia_von_hang_ban, 'orange', 'wallet'],
+          ['Lợi nhuận trước thuế', 'loi_nhuan_truoc_thue', report.loi_nhuan_truoc_thue, 'green', 'arrow'],
+          ['Lợi nhuận sau thuế', 'loi_nhuan_sau_thue', report.loi_nhuan_sau_thue, 'indigo', 'check'],
+          ['Biên lợi nhuận', 'gross_margin', report.gross_margin, 'navy', 'report'],
+        ].map(([label, key, value, tone, icon], index) => {
+          const prior = key === 'gross_margin' && result.comparison?.data ? Number(result.comparison.data.loi_nhuan_truoc_thue) / Number(result.comparison.data.doanh_thu_thuan) * 100 : result.comparison?.data?.[key];
+          const change = has(prior) && Number(prior) !== 0 ? (Number(value) - Number(prior)) / Math.abs(Number(prior)) * 100 : null;
+          return (
+            <article className={tone} key={label}>
+              <header>
+                <small>{label}</small>
+                <span><Icon name={icon} /></span>
+              </header>
+              <strong>{index === 4 ? percent(value) : money(value)}</strong>
+              <p className={has(change) ? (change >= 0 ? 'up' : 'down') : 'no-comparison'}>
+                {has(change) ? `${change >= 0 ? '↑' : '↓'} ${percent(Math.abs(change))} · So với cùng kỳ` : 'Chưa có dữ liệu cùng kỳ'}
+              </p>
+            </article>
+          );
+        })}
+      </div>
+      <MultiPeriodTrend rows={trend} />
+      <div className="executive-grid top">
+        <article className="executive-card trend-card">
+          <header>
+            <div>
+              <h3>Tổng quan kết quả tài chính</h3>
+              <p>So sánh các chỉ tiêu chính trong kỳ {report.period.label}</p>
+            </div>
+            <Icon name="chart" />
+          </header>
+          <PeriodSummaryChart report={report} />
+        </article>
+        <SamePeriodComparison comparison={result.comparison} current={report} />
+      </div>
+      <div className="executive-grid analytics">
+        <article className="executive-card executive-profitability horizontal">
+          <header>
+            <div>
+              <h3>Khả năng sinh lời</h3>
+              <p>Tỷ suất được tính từ cùng snapshot báo cáo, không đánh giá tốt hoặc xấu.</p>
+            </div>
+            <Icon name="chart" />
+          </header>
+          <div className="profitability-horizontal">
+            <div className="executive-ring" style={{ '--value': `${Math.min(Math.max(Number(report.gross_margin) || 0, 0), 100) * 3.6}deg` }}>
+              <span><strong>{percent(report.gross_margin)}</strong><small>Biên LNTT</small></span>
+            </div>
+            <dl>
+              <div>
+                <dt>Biên lợi nhuận trước thuế</dt>
+                <dd>{percent(report.gross_margin)}</dd>
+              </div>
+              <div>
+                <dt>Biên lợi nhuận sau thuế</dt>
+                <dd>{percent(afterTaxMargin)}</dd>
+              </div>
+            </dl>
+          </div>
+        </article>
+        <article className="executive-card executive-structure">
+          <header>
+            <div>
+              <h3>Cơ cấu doanh thu</h3>
+              <p>Giá vốn và lợi nhuận trước thuế trên doanh thu thuần</p>
+            </div>
+          </header>
+          <div className="revenue-stack">
+            <i className="cost" style={{ width: `${Number(report.doanh_thu_thuan) ? Number(report.gia_von_hang_ban) / Number(report.doanh_thu_thuan) * 100 : 0}%` }} />
+            <i className="profit" style={{ width: `${Number(report.doanh_thu_thuan) ? Number(report.loi_nhuan_truoc_thue) / Number(report.doanh_thu_thuan) * 100 : 0}%` }} />
+          </div>
+          <div className="structure-values">
+            <div>
+              <i className="cost" />
+              <span>Giá vốn</span>
+              <strong>{money(report.gia_von_hang_ban)}</strong>
+              <small>{percent(Number(report.doanh_thu_thuan) ? Number(report.gia_von_hang_ban) / Number(report.doanh_thu_thuan) * 100 : null)}</small>
+            </div>
+            <div>
+              <i className="profit" />
+              <span>Lợi nhuận trước thuế</span>
+              <strong>{money(report.loi_nhuan_truoc_thue)}</strong>
+              <small>{percent(report.gross_margin)}</small>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  );
 }
 
 function ReportRepository({ state, view }) {
