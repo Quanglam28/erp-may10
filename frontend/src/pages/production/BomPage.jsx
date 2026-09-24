@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
   Layers,
   Plus,
@@ -7,6 +8,8 @@ import {
   RefreshCw,
   Search,
   AlertCircle,
+  X,
+  ArrowLeft,
 } from 'lucide-react';
 import {
   getBoms,
@@ -14,9 +17,15 @@ import {
   updateBom,
   getProducts,
   getMaterials,
+  getProductionPlanDetail,
 } from '../../services/productionService';
 
 export default function BomPage({ showToast }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const planId = searchParams.get('planId');
+  const sanPhamIdParam = searchParams.get('sanPhamId');
+  const maKeHoachParam = searchParams.get('maKeHoach');
+
   const [boms, setBoms] = useState([]);
   const [products, setProducts] = useState([]);
   const [materials, setMaterials] = useState([]);
@@ -25,6 +34,7 @@ export default function BomPage({ showToast }) {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingBom, setEditingBom] = useState(null);
+  const [planContext, setPlanContext] = useState(null);
 
   const [formData, setFormData] = useState({
     san_pham_id: '',
@@ -38,14 +48,39 @@ export default function BomPage({ showToast }) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [resBoms, resProducts, resMaterials] = await Promise.all([
-        getBoms({ search }),
+      const params = {};
+      if (search) params.search = search;
+      if (planId) {
+        params.ke_hoach_id = planId;
+      } else if (sanPhamIdParam) {
+        params.ma_san_pham = sanPhamIdParam;
+      }
+
+      const promises = [
+        getBoms(params),
         getProducts(),
         getMaterials(),
-      ]);
+      ];
+
+      if (planId) {
+        promises.push(getProductionPlanDetail(planId).catch(() => null));
+      }
+
+      const [resBoms, resProducts, resMaterials, resPlan] = await Promise.all(promises);
       setBoms(resBoms?.data || []);
       setProducts(resProducts || []);
       setMaterials(resMaterials || []);
+      if (resPlan) {
+        setPlanContext(resPlan);
+      } else if (planId && (maKeHoachParam || sanPhamIdParam)) {
+        setPlanContext({
+          id: planId,
+          ma_ke_hoach: maKeHoachParam,
+          ma_san_pham: sanPhamIdParam,
+        });
+      } else if (!planId) {
+        setPlanContext(null);
+      }
     } catch (err) {
       console.error('Lỗi tải định mức BOM:', err);
       if (showToast) {
@@ -61,12 +96,18 @@ export default function BomPage({ showToast }) {
 
   useEffect(() => {
     fetchData();
-  }, [search]);
+  }, [search, planId, sanPhamIdParam]);
+
+  const handleClearPlanFilter = () => {
+    setPlanContext(null);
+    setSearchParams({});
+  };
 
   const handleOpenCreate = () => {
     setEditingBom(null);
+    const defaultProduct = planContext?.ma_san_pham || sanPhamIdParam || '';
     setFormData({
-      san_pham_id: '',
+      san_pham_id: defaultProduct,
       vat_tu_id: '',
       dinh_muc: 1,
       don_vi_tinh: '',
@@ -126,6 +167,48 @@ export default function BomPage({ showToast }) {
 
   return (
     <div className="space-y-4">
+      {/* Plan Context Banner */}
+      {planId && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-purple-100 text-purple-700 rounded-lg">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-semibold text-purple-900 flex items-center gap-1.5">
+                <span>Kế hoạch sản xuất:</span>
+                <span className="text-[#0F5FAF] font-bold">{planContext?.ma_ke_hoach || maKeHoachParam || `KHSX #${planId}`}</span>
+                {planContext?.trang_thai && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100/70 text-purple-800">
+                    {planContext.trang_thai}
+                  </span>
+                )}
+              </div>
+              <div className="text-slate-600 mt-0.5">
+                Đang hiển thị định mức BOM cho sản phẩm: <b className="text-slate-800">{planContext?.ten_san_pham || (planContext?.ma_san_pham ? `Mã SP: ${planContext.ma_san_pham}` : (sanPhamIdParam ? `Mã SP: ${sanPhamIdParam}` : '—'))}</b>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/production/plans"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Quay lại Kế hoạch</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleClearPlanFilter}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-100 text-purple-800 hover:bg-purple-200 font-medium transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Xem tất cả BOM</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Action bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-2 w-full sm:w-80">
@@ -175,7 +258,22 @@ export default function BomPage({ showToast }) {
               ) : boms.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-4 py-8 text-center text-slate-400">
-                    Chưa có dữ liệu định mức BOM
+                    {planId ? (
+                      <div className="max-w-md mx-auto space-y-2">
+                        <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+                        <div className="font-semibold text-slate-700">
+                          Chưa có định mức / BOM
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Kế hoạch <b className="text-slate-700">{planContext?.ma_ke_hoach || maKeHoachParam || `#${planId}`}</b> ({planContext?.ten_san_pham || `Sản phẩm #${sanPhamIdParam || ''}`}) hiện chưa được thiết lập định mức nguyên phụ liệu.
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Bấm nút &quot;Thêm định mức BOM&quot; ở trên để thiết lập định mức nguyên vật liệu cho sản phẩm này.
+                        </p>
+                      </div>
+                    ) : (
+                      'Chưa có dữ liệu định mức BOM'
+                    )}
                   </td>
                 </tr>
               ) : (

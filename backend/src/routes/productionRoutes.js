@@ -16,6 +16,7 @@ router.get('/dashboard', requireRoles('san_xuat', 'admin', 'kho'), productionCon
 // 2. Kế hoạch sản xuất (Plans)
 router.get('/plans', requireRoles('san_xuat', 'admin'), productionController.getPlans);
 router.post('/plans', requireRoles('san_xuat', 'admin'), productionController.createPlan);
+router.put('/plans/:id', requireRoles('san_xuat', 'admin'), productionController.updatePlan);
 router.get('/plans/:id', requireRoles('san_xuat', 'admin'), productionController.getPlanById);
 router.post('/plans/:id/approve', requireRoles('san_xuat', 'admin'), productionController.approvePlan);
 router.post('/plans/:id/pause', requireRoles('san_xuat', 'admin'), productionController.pausePlan);
@@ -38,6 +39,7 @@ router.post('/orders/:id/start', requireRoles('san_xuat', 'admin'), productionCo
 // 5. Hoạch định nhu cầu NVL (MRP)
 router.get('/mrp', requireRoles('san_xuat', 'admin'), productionController.getMrp);
 router.get('/mrp/requirements', requireRoles('san_xuat', 'admin'), productionController.getMrp);
+router.get('/mrp/stock/:maVatTu', requireRoles('san_xuat', 'kho', 'admin'), productionController.getMrpStockByMaterial);
 router.post('/mrp/create-pr', requireRoles('san_xuat', 'admin'), productionController.createPurchaseRequestFromMrp);
 router.post('/mrp/create-purchase-request', requireRoles('san_xuat', 'admin'), productionController.createPurchaseRequestFromMrp);
 

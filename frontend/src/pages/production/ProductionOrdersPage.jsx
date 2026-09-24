@@ -128,6 +128,7 @@ export default function ProductionOrdersPage({ showToast }) {
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Hoàn thành</span>;
       case 'tam_dung':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">Tạm dừng</span>;
+      case 'huy':
       case 'da_huy':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">Đã huỷ</span>;
       default:
@@ -149,10 +150,10 @@ export default function ProductionOrdersPage({ showToast }) {
           >
             <option value="">Tất cả trạng thái</option>
             <option value="chua_bat_dau">Chưa bắt đầu</option>
-            <option value="dang_thuc_hien">Đang thực hiện</option>
+            <option value="dang_san_xuat">Đang sản xuất</option>
             <option value="hoan_thanh">Hoàn thành</option>
             <option value="tam_dung">Tạm dừng</option>
-            <option value="da_huy">Đã huỷ</option>
+            <option value="huy">Đã huỷ</option>
           </select>
         </div>
 

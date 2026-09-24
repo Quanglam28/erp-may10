@@ -158,6 +158,79 @@ async function getPlanById(req, res) {
   }
 }
 
+async function updatePlan(req, res) {
+  const client = await db.getClient();
+  try {
+    const { id } = req.params;
+    const validation = validatePlanInput(req.body);
+    if (!validation.isValid) {
+      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: validation.errors.join(' ') });
+    }
+
+    await client.query('BEGIN');
+    const currentRes = await client.query(
+      `SELECT * FROM ke_hoach_san_xuat WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    if (!currentRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'Không tìm thấy kế hoạch sản xuất.' });
+    }
+
+    const current = currentRes.rows[0];
+    if (['hoan_thanh', 'huy'].includes(current.trang_thai)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, errorCode: 'CONFLICT', message: 'Không thể sửa kế hoạch đã hoàn thành hoặc đã hủy.' });
+    }
+
+    // Giữ an toàn liên phân hệ: sau khi kế hoạch đã duyệt/đang chạy,
+    // không đổi sản phẩm và số lượng vì MRP đã được ghi nhận cho kế hoạch.
+    const approved = ['da_duyet', 'dang_thuc_hien', 'tam_dung'].includes(current.trang_thai);
+    const maSanPham = approved ? current.ma_san_pham : (req.body.ma_san_pham ?? current.ma_san_pham);
+    const soLuong = approved ? current.so_luong_ke_hoach : (req.body.so_luong_ke_hoach ?? current.so_luong_ke_hoach);
+
+    const result = await client.query(
+      `UPDATE ke_hoach_san_xuat
+       SET ma_ke_hoach = COALESCE($1, ma_ke_hoach),
+           ma_san_pham = $2,
+           so_luong_ke_hoach = $3,
+           ngay_bat_dau = COALESCE($4, ngay_bat_dau),
+           ngay_ket_thuc = COALESCE($5, ngay_ket_thuc),
+           ghi_chu = COALESCE($6, ghi_chu),
+           ma_don_ban_hang = COALESCE($7, ma_don_ban_hang),
+           ngay_cap_nhat = NOW(),
+           nguoi_cap_nhat = $8
+       WHERE id = $9
+       RETURNING *`,
+      [
+        req.body.ma_ke_hoach?.trim() || null,
+        maSanPham,
+        soLuong,
+        req.body.ngay_bat_dau || null,
+        req.body.ngay_ket_thuc || null,
+        req.body.ghi_chu ?? null,
+        req.body.ma_don_ban_hang ?? null,
+        req.user?.id || 1,
+        id,
+      ]
+    );
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      message: 'Đã cập nhật kế hoạch sản xuất thành công.',
+      data: result.rows[0],
+      protectedFields: approved ? ['ma_san_pham', 'so_luong_ke_hoach'] : [],
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[ProductionController.updatePlan Error]:', err);
+    return res.status(500).json({ success: false, errorCode: 'INTERNAL_ERROR', message: 'Lỗi khi cập nhật kế hoạch sản xuất.', error: err.message });
+  } finally {
+    client.release();
+  }
+}
+
 async function createPlan(req, res) {
   try {
     const validation = validatePlanInput(req.body);
@@ -414,7 +487,8 @@ async function cancelPlan(req, res) {
 // 3. Định mức nguyên liệu (BOM)
 async function getBom(req, res) {
   try {
-    const { ma_san_pham, search } = req.query;
+    const { ma_san_pham, ke_hoach_id, plan_id, search } = req.query;
+    const planFilter = ke_hoach_id || plan_id;
     let query = `
       SELECT b.*, sp.ma_san_pham, sp.ten_san_pham, vt.ma_vat_tu, vt.ten_vat_tu, 
              dvt.ten_don_vi AS don_vi_tinh
@@ -426,7 +500,10 @@ async function getBom(req, res) {
     `;
     const params = [];
 
-    if (ma_san_pham) {
+    if (planFilter) {
+      params.push(planFilter);
+      query += ` AND b.ma_san_pham = (SELECT ma_san_pham FROM ke_hoach_san_xuat WHERE id = $${params.length})`;
+    } else if (ma_san_pham) {
       params.push(ma_san_pham);
       query += ` AND b.ma_san_pham = $${params.length}`;
     }
@@ -740,7 +817,7 @@ async function startOrder(req, res) {
 }
 
 // 5. Hoạch định nhu cầu NVL (MRP)
-async function calculateMrpInternal() {
+async function calculateMrpInternal(planId = null) {
   // Lấy tất cả KHSX đang hoạt động (da_duyet, dang_thuc_hien, tam_dung)
   const query = `
     SELECT 
@@ -760,11 +837,12 @@ async function calculateMrpInternal() {
       GROUP BY ma_vat_tu
     ) tk ON tk.ma_vat_tu = vt.id
     WHERE kh.trang_thai IN ('da_duyet', 'dang_thuc_hien', 'tam_dung')
+      ${planId ? 'AND kh.id = $1' : ''}
     GROUP BY vt.id, vt.ma_vat_tu, vt.ten_vat_tu, dvt.ten_don_vi, tk.stock
     ORDER BY vt.ma_vat_tu
   `;
 
-  const result = await db.query(query);
+  const result = await db.query(query, planId ? [planId] : []);
 
   return result.rows.map((row) => {
     const needed = parseFloat(row.so_luong_can);
@@ -779,13 +857,69 @@ async function calculateMrpInternal() {
       so_luong_ton_kho: stock,
       so_luong_can_mua: missing,
       isShortage: missing > 0,
+      trang_thai: missing > 0 ? 'thieu_hang' : 'du_hang',
     };
   });
 }
 
+async function getMrpStockByMaterial(req, res) {
+  try {
+    const maVatTu = Number(req.params.maVatTu);
+    if (!Number.isInteger(maVatTu) || maVatTu <= 0) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'VALIDATION_ERROR',
+        message: 'Mã vật tư không hợp lệ.',
+      });
+    }
+
+    // PH2 chỉ đọc dữ liệu tồn kho dùng chung của PH4.
+    // Không cập nhật trực tiếp ton_kho để tránh trừ kho hai lần.
+    const result = await db.query(
+      `SELECT
+         tk.ma_kho,
+         k.ma_kho AS ma_kho_code,
+         k.ten_kho,
+         tk.ma_vat_tu,
+         vt.ma_vat_tu AS ma_vat_tu_code,
+         vt.ten_vat_tu,
+         COALESCE(dvt.ten_don_vi, '') AS don_vi_tinh,
+         COALESCE(tk.so_luong_ton, 0) AS so_luong_ton,
+         tk.gia_tri_ton_kho,
+         tk.ngay_cap_nhat
+       FROM ton_kho tk
+       JOIN kho k ON k.id = tk.ma_kho
+       JOIN vat_tu vt ON vt.id = tk.ma_vat_tu
+       LEFT JOIN don_vi_tinh dvt ON dvt.id = vt.ma_don_vi_tinh
+       WHERE tk.ma_vat_tu = $1
+       ORDER BY k.id ASC`,
+      [maVatTu]
+    );
+
+    const totalStock = result.rows.reduce((sum, row) => sum + parseFloat(row.so_luong_ton || 0), 0);
+
+    return res.json({
+      success: true,
+      data: {
+        ma_vat_tu: maVatTu,
+        tong_ton_kho: totalStock,
+        warehouses: result.rows,
+      },
+    });
+  } catch (err) {
+    console.error('[ProductionController.getMrpStockByMaterial Error]:', err);
+    return res.status(500).json({
+      success: false,
+      errorCode: 'INTERNAL_ERROR',
+      message: 'Lỗi khi lấy tồn kho theo kho từ phân hệ Kho.',
+    });
+  }
+}
+
 async function getMrp(req, res) {
   try {
-    const mrpData = await calculateMrpInternal();
+    const planId = req.query.ke_hoach_id ? Number(req.query.ke_hoach_id) : null;
+    const mrpData = await calculateMrpInternal(planId);
     return res.json({
       success: true,
       data: mrpData,
@@ -800,7 +934,7 @@ async function getMrp(req, res) {
 async function createPurchaseRequestFromMrp(req, res) {
   const client = await db.getClient();
   try {
-    const { ma_vat_tu, so_luong_yeu_cau, ghi_chu } = req.body;
+    const { ma_vat_tu, so_luong_yeu_cau, ma_ke_hoach_san_xuat, ghi_chu } = req.body;
     if (!ma_vat_tu || !so_luong_yeu_cau || parseFloat(so_luong_yeu_cau) <= 0) {
       return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'Thông tin vật tư hoặc số lượng không hợp lệ.' });
     }
@@ -836,13 +970,25 @@ async function createPurchaseRequestFromMrp(req, res) {
       ]
     );
 
-    // Đánh dấu bảng nhu_cau_npl nếu có
-    await client.query(
-      `UPDATE nhu_cau_npl 
-       SET da_tao_yeu_cau_mua = 'da_tao', ma_yeu_cau_mua_hang = $1
-       WHERE ma_vat_tu = $2 AND da_tao_yeu_cau_mua = 'chua_tao'`,
-      [prHeader.id, ma_vat_tu]
-    );
+    // Đánh dấu đúng nhu cầu NPL của kế hoạch hiện tại.
+    // Nếu MRP đang tổng hợp nhiều kế hoạch thì không đánh dấu nhầm toàn bộ
+    // nhu cầu cùng mã vật tư của các kế hoạch khác.
+    const updateRequirementQuery = ma_ke_hoach_san_xuat
+      ? `UPDATE nhu_cau_npl
+         SET da_tao_yeu_cau_mua = 'da_tao', ma_yeu_cau_mua_hang = $1
+         WHERE ma_vat_tu = $2
+           AND ma_ke_hoach_san_xuat = $3
+           AND da_tao_yeu_cau_mua = 'chua_tao'`
+      : `UPDATE nhu_cau_npl
+         SET da_tao_yeu_cau_mua = 'da_tao', ma_yeu_cau_mua_hang = $1
+         WHERE ma_vat_tu = $2
+           AND da_tao_yeu_cau_mua = 'chua_tao'`;
+
+    const updateRequirementParams = ma_ke_hoach_san_xuat
+      ? [prHeader.id, ma_vat_tu, ma_ke_hoach_san_xuat]
+      : [prHeader.id, ma_vat_tu];
+
+    await client.query(updateRequirementQuery, updateRequirementParams);
 
     await client.query('COMMIT');
 
@@ -914,9 +1060,31 @@ async function recordResult(req, res) {
     }
 
     const order = orderLock.rows[0];
+    if (!['dang_san_xuat', 'tam_dung'].includes(order.trang_thai)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        errorCode: 'INVALID_STATUS',
+        message: 'Chỉ được cập nhật kết quả cho lệnh sản xuất đang sản xuất hoặc tạm dừng.',
+      });
+    }
+
     const completedBatch = parseFloat(so_luong_hoan_thanh);
     const failedBatch = parseFloat(so_luong_loi || 0);
-    const newCompleted = parseFloat(order.so_luong_hoan_thanh) + completedBatch;
+    const currentCompleted = parseFloat(order.so_luong_hoan_thanh || 0);
+    const targetQuantity = parseFloat(order.so_luong_yeu_cau || 0);
+    const remainingQuantity = Math.max(0, targetQuantity - currentCompleted);
+
+    if (completedBatch > remainingQuantity) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        errorCode: 'OVER_COMPLETION',
+        message: `Sản lượng cập nhật (${completedBatch}) vượt số lượng còn lại (${remainingQuantity}).`,
+      });
+    }
+
+    const newCompleted = currentCompleted + completedBatch;
 
     // Ghi nhật ký vào ket_qua_san_xuat
     const logRes = await client.query(
@@ -948,6 +1116,16 @@ async function recordResult(req, res) {
        WHERE id = $4`,
       [newCompleted, newStatus, isFinished, order.id]
     );
+
+    // Đồng bộ luồng ban đầu: khi lệnh hoàn tất thì kế hoạch liên kết cũng hoàn thành
+    if (isFinished && order.ma_ke_hoach_san_xuat) {
+      await client.query(
+        `UPDATE ke_hoach_san_xuat
+         SET trang_thai = 'hoan_thanh', ngay_cap_nhat = NOW()
+         WHERE id = $1 AND trang_thai IN ('dang_thuc_hien', 'da_duyet')`,
+        [order.ma_ke_hoach_san_xuat]
+      );
+    }
 
     // Cập nhật công đoạn hoàn tất nếu đạt đủ sản lượng
     if (isFinished) {
@@ -1094,6 +1272,7 @@ module.exports = {
   getPlans,
   getPlanById,
   createPlan,
+  updatePlan,
   approvePlan,
   pausePlan,
   cancelPlan,
@@ -1105,6 +1284,7 @@ module.exports = {
   createOrder,
   startOrder,
   getMrp,
+  getMrpStockByMaterial,
   createPurchaseRequestFromMrp,
   getStages,
   recordResult,

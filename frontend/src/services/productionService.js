@@ -14,6 +14,9 @@ export const getProductionPlanDetail = (id) =>
 export const createProductionPlan = (data) =>
   api.post('/production/plans', data).then((res) => res.data);
 
+export const updateProductionPlan = (id, data) =>
+  api.put(`/production/plans/${id}`, data).then((res) => res.data);
+
 export const approveProductionPlan = (id) =>
   api.post(`/production/plans/${id}/approve`).then((res) => res.data);
 
@@ -64,6 +67,10 @@ export const getMrpRequirements = (params) =>
 
 export const createPrFromMrp = (data) =>
   api.post('/production/mrp/create-pr', data).then((res) => res.data);
+
+// Tồn kho được đọc trực tiếp từ dữ liệu dùng chung của PH4 Kho (Read-Only).
+export const getMrpStockByMaterial = (maVatTu) =>
+  api.get(`/production/mrp/stock/${maVatTu}`).then((res) => res.data);
 
 // 6. Danh mục sản phẩm & vật tư
 export const getProducts = () =>

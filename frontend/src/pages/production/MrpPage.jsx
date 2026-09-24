@@ -8,12 +8,15 @@ import {
   RefreshCw,
   Info,
   CalendarDays,
+  Warehouse,
+  X,
 } from 'lucide-react';
 import {
   getProductionPlans,
   calculateMrp,
   getMrpRequirements,
   createPrFromMrp,
+  getMrpStockByMaterial,
 } from '../../services/productionService';
 
 export default function MrpPage({ showToast }) {
@@ -22,11 +25,13 @@ export default function MrpPage({ showToast }) {
   const [mrpItems, setMrpItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [creatingPr, setCreatingPr] = useState(false);
+  const [stockDetail, setStockDetail] = useState(null);
+  const [stockLoading, setStockLoading] = useState(false);
 
   const fetchPlans = async () => {
     try {
       const res = await getProductionPlans();
-      const list = res?.data || [];
+      const list = (res?.data || []).filter((p) => ['da_duyet', 'dang_thuc_hien', 'tam_dung'].includes(p.trang_thai));
       setPlans(list);
     } catch (err) {
       console.error('Lỗi tải danh sách kế hoạch:', err);
@@ -63,6 +68,24 @@ export default function MrpPage({ showToast }) {
 
   const shortageItems = mrpItems.filter((m) => Number(m.so_luong_can_mua) > 0);
 
+  const handleViewWarehouseStock = async (item) => {
+    try {
+      setStockLoading(true);
+      const res = await getMrpStockByMaterial(item.ma_vat_tu);
+      setStockDetail(res?.data || null);
+    } catch (err) {
+      console.error('Lỗi tải tồn kho theo kho:', err);
+      if (showToast) {
+        showToast({
+          type: 'error',
+          message: err.response?.data?.message || 'Không thể lấy chi tiết tồn kho từ phân hệ Kho.',
+        });
+      }
+    } finally {
+      setStockLoading(false);
+    }
+  };
+
   // Tạo PR cho một vật tư cụ thể
   const handleCreatePrSingle = async (item) => {
     if (!window.confirm(`Xác nhận tạo Yêu cầu mua sắm (PR) cho vật tư [${item.ten_vat_tu}] với số lượng thiếu ${item.so_luong_can_mua} ${item.don_vi_tinh}?`)) {
@@ -72,6 +95,7 @@ export default function MrpPage({ showToast }) {
       setCreatingPr(true);
       const res = await createPrFromMrp({
         ma_vat_tu: item.ma_vat_tu,
+        ma_ke_hoach_san_xuat: selectedPlanId ? Number(selectedPlanId) : undefined,
         so_luong_yeu_cau: Number(item.so_luong_can_mua),
         ghi_chu: `Bổ sung thiếu hụt MRP cho vật tư ${item.ten_vat_tu} (${item.ma_vat_tu_code || item.ma_vat_tu})`,
       });
@@ -111,6 +135,7 @@ export default function MrpPage({ showToast }) {
       for (const item of shortageItems) {
         await createPrFromMrp({
           ma_vat_tu: item.ma_vat_tu,
+          ma_ke_hoach_san_xuat: selectedPlanId ? Number(selectedPlanId) : undefined,
           so_luong_yeu_cau: Number(item.so_luong_can_mua),
           ghi_chu: `Bổ sung thiếu hụt MRP cho ${item.ten_vat_tu}`,
         });
@@ -296,19 +321,29 @@ export default function MrpPage({ showToast }) {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {isShort ? (
+                            <div className="flex items-center justify-center gap-1.5">
                               <button
-                                onClick={() => handleCreatePrSingle(m)}
-                                disabled={creatingPr}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 font-medium transition-colors border border-amber-200 disabled:opacity-50"
-                                title="Tạo PR sang PH3 cho vật tư này"
+                                onClick={() => handleViewWarehouseStock(m)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 font-medium transition-colors border border-slate-200"
+                                title="Xem tồn kho chi tiết theo từng kho của PH4"
                               >
-                                <ShoppingCart className="w-3.5 h-3.5" />
-                                <span>Tạo PR</span>
+                                <Warehouse className="w-3.5 h-3.5 text-[#0F5FAF]" />
+                                <span>Kho</span>
                               </button>
-                            ) : (
-                              <span className="text-slate-400 text-[11px]">—</span>
-                            )}
+                              {isShort ? (
+                                <button
+                                  onClick={() => handleCreatePrSingle(m)}
+                                  disabled={creatingPr}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 font-medium transition-colors border border-amber-200 disabled:opacity-50"
+                                  title="Tạo PR sang PH3 cho vật tư này"
+                                >
+                                  <ShoppingCart className="w-3.5 h-3.5" />
+                                  <span>Tạo PR</span>
+                                </button>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">—</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -316,6 +351,69 @@ export default function MrpPage({ showToast }) {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal tra cứu tồn kho theo kho từ PH4 (Read-Only) */}
+      {stockDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4" onClick={() => setStockDetail(null)}>
+          <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Warehouse className="w-5 h-5 text-[#0F5FAF]" />
+                  <h3 className="font-bold text-slate-900">Tồn kho theo từng kho — PH4</h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Mã VT: <strong>{stockDetail.ma_vat_tu}</strong> · Tổng tồn kho: <strong>{new Intl.NumberFormat('vi-VN').format(stockDetail.tong_ton_kho || 0)}</strong></p>
+              </div>
+              <button onClick={() => setStockDetail(null)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-5">
+              {stockLoading ? (
+                <div className="py-10 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-[#0F5FAF]" />
+                  <span>Đang lấy dữ liệu tồn kho từ PH4...</span>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Mã kho</th>
+                        <th className="px-3 py-2 text-left">Tên kho</th>
+                        <th className="px-3 py-2 text-right">Số lượng tồn</th>
+                        <th className="px-3 py-2 text-left">Ngày cập nhật</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(stockDetail.warehouses || []).map((row) => (
+                        <tr key={row.ma_kho}>
+                          <td className="px-3 py-2 font-mono font-medium text-slate-700">{row.ma_kho_code || row.ma_kho}</td>
+                          <td className="px-3 py-2 font-medium">{row.ten_kho}</td>
+                          <td className="px-3 py-2 text-right font-bold text-slate-900">
+                            {new Intl.NumberFormat('vi-VN').format(row.so_luong_ton)} {row.don_vi_tinh || ''}
+                          </td>
+                          <td className="px-3 py-2 text-slate-500">
+                            {row.ngay_cap_nhat ? new Date(row.ngay_cap_nhat).toLocaleString('vi-VN') : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                      {(stockDetail.warehouses || []).length === 0 && (
+                        <tr>
+                          <td colSpan="4" className="px-3 py-8 text-center text-slate-400">Chưa có dữ liệu tồn kho cho vật tư này tại PH4.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500">
+              Dữ liệu được đọc trực tiếp (Read-Only) từ bảng <code>ton_kho</code> của Phân hệ Kho (PH4). Phân hệ Sản xuất không tự ý ghi/sửa dữ liệu tồn kho.
             </div>
           </div>
         </div>

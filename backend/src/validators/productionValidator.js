@@ -57,9 +57,12 @@ function validateOrderInput(data) {
     errors.push('Vui lòng chọn kế hoạch sản xuất để lập lệnh.');
   }
 
-  const qty = parseFloat(data.so_luong_yeu_cau);
-  if (isNaN(qty) || qty <= 0) {
-    errors.push('Số lượng yêu cầu của lệnh phải lớn hơn 0.');
+  // Nếu không truyền số lượng, backend dùng toàn bộ số lượng của kế hoạch — đúng luồng ban đầu.
+  if (data.so_luong_yeu_cau !== undefined && data.so_luong_yeu_cau !== null && data.so_luong_yeu_cau !== '') {
+    const qty = parseFloat(data.so_luong_yeu_cau);
+    if (isNaN(qty) || qty <= 0) {
+      errors.push('Số lượng yêu cầu của lệnh phải lớn hơn 0.');
+    }
   }
 
   return {
