@@ -263,14 +263,14 @@ export const ENTERPRISE_MENU = [
       },
       {
         id: 'acc-journal',
-        title: 'Sổ nhật ký chung',
+        title: 'Hạch toán',
         path: '/accounting/hach-toan',
         icon: 'BookOpen',
         permission: 'accounting.journal',
       },
       {
         id: 'acc-ledger',
-        title: 'Sổ cái tài khoản',
+        title: 'Nhật ký và Sổ cái',
         path: '/accounting/so-cai',
         icon: 'Calculator',
         permission: 'accounting.journal',
