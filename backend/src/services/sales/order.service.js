@@ -130,6 +130,28 @@ const orderQuerySchema = v
     search: v.string().trim().max(100, 'Từ khóa tìm kiếm tối đa 100 ký tự').optional(),
     ma_khach_hang: v.coerce.number().int().positive('Mã khách hàng không hợp lệ').optional(),
     trang_thai: v.enum(ORDER_STATUSES, 'Trạng thái đơn hàng không hợp lệ').optional(),
+    // Several statuses at once, comma-separated (`da_xac_nhan,dang_san_xuat`).
+    // Used by the pickers that may only offer orders in a set of states.
+    trang_thai_in: v
+      .string()
+      .trim()
+      .max(200, 'Danh sách trạng thái không hợp lệ')
+      .refine(
+        (value) =>
+          value
+            .split(',')
+            .map((token) => token.trim())
+            .filter((token) => token.length > 0)
+            .every((token) => ORDER_STATUSES.includes(token)),
+        { message: 'Trạng thái đơn hàng không hợp lệ' }
+      )
+      .transform((value) =>
+        value
+          .split(',')
+          .map((token) => token.trim())
+          .filter((token) => token.length > 0)
+      )
+      .optional(),
     nguoi_ban: v.coerce.number().int().positive('Người bán không hợp lệ').optional(),
     fromDate: v.dateISO('Ngày bắt đầu không đúng định dạng (YYYY-MM-DD)').optional(),
     toDate: v.dateISO('Ngày kết thúc không đúng định dạng (YYYY-MM-DD)').optional(),

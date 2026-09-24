@@ -8,6 +8,8 @@ import { controlBorderClass, controlClass, statusTextClass } from './Input.jsx';
  * owns focus, the popup is a listbox, and the active option is tracked with
  * aria-activedescendant. `items` are whatever the caller's `onSearch` returned —
  * the component never filters locally.
+ * `initialLabel` seeds the input for a selection that already exists (a preset
+ * order id); remount the component when that label changes.
  */
 export function Combobox({
   label,
@@ -19,9 +21,14 @@ export function Combobox({
   status,
   disabled = false,
   emptyMessage = 'Không tìm thấy kết quả',
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
+  loadMoreLabel = 'Tải thêm kết quả',
+  initialLabel = '',
   className,
 }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialLabel);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef(null);
@@ -112,26 +119,41 @@ export function Combobox({
             ) : items.length === 0 ? (
               <li className="px-3 py-2 text-sm text-brand-secondary">{emptyMessage}</li>
             ) : (
-              items.map((item, index) => (
-                <li
-                  key={item.id}
-                  id={optionId(index)}
-                  ref={index === activeIndex ? activeOptionRef : undefined}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => select(item)}
-                  className={cn(
-                    'cursor-pointer px-3 py-2',
-                    index === activeIndex ? 'bg-brand-light' : 'hover:bg-slate-50'
-                  )}
-                >
-                  <span className="block text-sm font-medium text-brand-text">{item.label}</span>
-                  {item.description ? (
-                    <span className="block text-xs text-brand-secondary">{item.description}</span>
-                  ) : null}
-                </li>
-              ))
+              <>
+                {items.map((item, index) => (
+                  <li
+                    key={item.id}
+                    id={optionId(index)}
+                    ref={index === activeIndex ? activeOptionRef : undefined}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => select(item)}
+                    className={cn(
+                      'cursor-pointer px-3 py-2',
+                      index === activeIndex ? 'bg-brand-light' : 'hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="block text-sm font-medium text-brand-text">{item.label}</span>
+                    {item.description ? (
+                      <span className="block text-xs text-brand-secondary">{item.description}</span>
+                    ) : null}
+                  </li>
+                ))}
+                {hasMore ? (
+                  <li role="presentation" className="border-t border-brand-border">
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => onLoadMore?.()}
+                      disabled={isLoadingMore}
+                      className="w-full px-3 py-2 text-left text-sm font-medium text-brand-primary hover:bg-slate-50 disabled:text-slate-400"
+                    >
+                      {isLoadingMore ? 'Đang tải thêm...' : loadMoreLabel}
+                    </button>
+                  </li>
+                ) : null}
+              </>
             )}
           </ul>
         ) : null}

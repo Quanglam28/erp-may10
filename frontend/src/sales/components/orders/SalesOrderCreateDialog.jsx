@@ -9,19 +9,14 @@ import { Table, proportional, pixel } from '../ui/Table.jsx';
 import { Input } from '../ui/Input.jsx';
 import { NumberInput } from '../ui/NumberInput.jsx';
 import { Textarea } from '../ui/Textarea.jsx';
-import { Select } from '../ui/Select.jsx';
 import { DateInput } from '../ui/DateInput.jsx';
 import { toast } from '../ui/toast.jsx';
 import { fieldStatus, firstFieldError, orderFieldErrors, serverFieldErrors, toWireAmount, toWireQuantity } from '../../lib/validation.js';
 import { FormSection } from '../common/FormSection.jsx';
-import { LoadingState } from '../common/LoadingState.jsx';
-import { getCustomers } from '../../services/customerService.js';
 import { createOrder } from '../../services/orderService.js';
 import { formatCurrency } from '../../lib/format.js';
 import { ProductSelector } from '../products/ProductSelector.jsx';
-
-/** Customers are looked up once per open, so the picker covers the whole active catalogue. */
-const CUSTOMER_PAGE_SIZE = 100;
+import { CustomerSelector } from '../customers/CustomerSelector.jsx';
 
 /**
  * Fresh order dates: placed today, requested for delivery a week out. Kept in one
@@ -45,9 +40,7 @@ function defaultOrderDates() {
 export function SalesOrderCreateDialog({ isOpen, onOpenChange, onCreated }) {
   const formId = 'sales-order-create-form';
 
-  const [customers, setCustomers] = useState([]);
-  const [loadingCustomers, setLoadingCustomers] = useState(true);
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderDate, setOrderDate] = useState(() => defaultOrderDates().ngay_dat_hang);
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(
@@ -59,12 +52,12 @@ export function SalesOrderCreateDialog({ isOpen, onOpenChange, onCreated }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
-  // Each open starts from a clean form and reloads the active customer catalogue.
+  // Each open starts from a clean form; the customer picker reloads its own page.
   useEffect(() => {
     if (!isOpen) return undefined;
 
     const { ngay_dat_hang, ngay_giao_hang_yc } = defaultOrderDates();
-    setSelectedCustomerId('');
+    setSelectedCustomer(null);
     setDeliveryAddress('');
     setOrderDate(ngay_dat_hang);
     setRequestedDeliveryDate(ngay_giao_hang_yc);
@@ -72,34 +65,16 @@ export function SalesOrderCreateDialog({ isOpen, onOpenChange, onCreated }) {
     setLines([]);
     setIsSubmitting(false);
     setFieldErrors({});
-    setLoadingCustomers(true);
 
-    let cancelled = false;
-    const loadCustomers = async () => {
-      try {
-        const res = await getCustomers({ pageSize: CUSTOMER_PAGE_SIZE, trang_thai: 'hoat_dong' });
-        if (!cancelled) setCustomers(res.customers);
-      } catch {
-        if (!cancelled) toast.error('Không thể tải danh sách khách hàng.');
-      } finally {
-        if (!cancelled) setLoadingCustomers(false);
-      }
-    };
-    void loadCustomers();
-
-    return () => {
-      cancelled = true;
-    };
+    return undefined;
   }, [isOpen]);
 
-  const handleCustomerChange = (customerIdStr) => {
-    const cId = Number(customerIdStr);
-    setSelectedCustomerId(cId);
-    // The API serialises bigint ids as strings, so match on the wire value.
-    const selected = customers.find((c) => String(c.id) === customerIdStr);
-    if (selected) {
-      setDeliveryAddress(selected.dia_chi + ', ' + selected.tinh_thanh_pho);
-    }
+  // Selecting a customer pre-fills the delivery address from the API record and
+  // leaves it editable — the goods may be going somewhere else.
+  const handleCustomerSelect = (customer) => {
+    setSelectedCustomer(customer);
+    const address = [customer.dia_chi, customer.tinh_thanh_pho].filter(Boolean).join(', ');
+    if (address) setDeliveryAddress(address);
   };
 
   const handleAddProduct = (product) => {
@@ -135,7 +110,7 @@ export function SalesOrderCreateDialog({ isOpen, onOpenChange, onCreated }) {
     e.preventDefault();
     // Same rules and messages as `createOrderSchema`; the server re-checks anyway.
     const localErrors = orderFieldErrors({
-      customerId: selectedCustomerId,
+      customerId: selectedCustomer ? selectedCustomer.id : '',
       orderDate,
       requestedDeliveryDate,
       deliveryAddress,
@@ -154,7 +129,7 @@ export function SalesOrderCreateDialog({ isOpen, onOpenChange, onCreated }) {
 
     try {
       const created = await createOrder({
-        ma_khach_hang: Number(selectedCustomerId),
+        ma_khach_hang: selectedCustomer.id,
         ngay_dat_hang: orderDate,
         ngay_giao_hang_yc: requestedDeliveryDate,
         dia_chi_giao_hang: deliveryAddress.trim(),
@@ -287,7 +262,7 @@ export function SalesOrderCreateDialog({ isOpen, onOpenChange, onCreated }) {
         form={formId}
         variant="primary"
         loading={isSubmitting}
-        disabled={isSubmitting || loadingCustomers || lines.length === 0}
+        disabled={isSubmitting || lines.length === 0}
       >
         {isSubmitting ? 'Đang tạo đơn hàng...' : 'Lưu đơn bán hàng'}
       </Button>
@@ -310,113 +285,109 @@ export function SalesOrderCreateDialog({ isOpen, onOpenChange, onCreated }) {
         noValidate
         className="flex max-h-[65vh] flex-col gap-5 overflow-y-auto pr-1"
       >
-        {loadingCustomers ? (
-          <LoadingState message="Đang nạp danh mục khách hàng..." />
-        ) : (
-          <>
-            <FormSection title="1. Thông tin chung đơn hàng">
-              <Select
-                label="Khách hàng *"
-                placeholder="-- Chọn khách hàng --"
-                value={selectedCustomerId === '' ? undefined : String(selectedCustomerId)}
-                onChange={(value) => handleCustomerChange(value ?? '')}
-                options={customers.map((c) => ({
-                  value: String(c.id),
-                  label: c.ten_khach_hang + ' (' + c.ma_khach_hang + ') - ' + c.tinh_thanh_pho,
-                }))}
-                status={fieldStatus(fieldErrors, 'ma_khach_hang')}
-              />
+        <FormSection title="1. Thông tin chung đơn hàng">
+          <div className="flex flex-col gap-1.5">
+            <CustomerSelector
+              onSelect={handleCustomerSelect}
+              status={fieldStatus(fieldErrors, 'ma_khach_hang')}
+            />
+            {selectedCustomer ? (
+              <Text variant="supporting">
+                {'Đã chọn: ' + selectedCustomer.ma_khach_hang +
+                  (selectedCustomer.so_dien_thoai ? ' • ĐT: ' + selectedCustomer.so_dien_thoai : '') +
+                  (selectedCustomer.ma_so_thue ? ' • MST: ' + selectedCustomer.ma_so_thue : '')}
+              </Text>
+            ) : null}
+          </div>
 
-              <Input
-                label="Địa chỉ giao hàng *"
-                value={deliveryAddress}
-                onChange={(value) => setDeliveryAddress(value)}
-                status={fieldStatus(fieldErrors, 'dia_chi_giao_hang')}
-              />
+          <Input
+            label="Địa chỉ giao hàng *"
+            value={deliveryAddress}
+            onChange={(value) => setDeliveryAddress(value)}
+            status={fieldStatus(fieldErrors, 'dia_chi_giao_hang')}
+          />
 
-              <DateInput
-                label="Ngày đặt hàng *"
-                value={orderDate}
-                onChange={(value) => setOrderDate(value ?? '')}
-                status={fieldStatus(fieldErrors, 'ngay_dat_hang')}
-              />
+          <DateInput
+            label="Ngày đặt hàng *"
+            value={orderDate}
+            onChange={(value) => setOrderDate(value ?? '')}
+            status={fieldStatus(fieldErrors, 'ngay_dat_hang')}
+          />
 
-              <DateInput
-                label="Ngày giao hàng yêu cầu *"
-                value={requestedDeliveryDate}
-                onChange={(value) => setRequestedDeliveryDate(value ?? '')}
-                status={fieldStatus(fieldErrors, 'ngay_giao_hang_yc')}
-              />
+          <DateInput
+            label="Ngày giao hàng yêu cầu *"
+            value={requestedDeliveryDate}
+            onChange={(value) => setRequestedDeliveryDate(value ?? '')}
+            status={fieldStatus(fieldErrors, 'ngay_giao_hang_yc')}
+          />
 
-              <Textarea
-                label="Ghi chú đơn hàng"
-                rows={2}
-                value={notes}
-                onChange={(value) => setNotes(value)}
-                status={fieldStatus(fieldErrors, 'ghi_chu')}
-              />
-            </FormSection>
+          <Textarea
+            label="Ghi chú đơn hàng"
+            rows={2}
+            value={notes}
+            onChange={(value) => setNotes(value)}
+            status={fieldStatus(fieldErrors, 'ghi_chu')}
+          />
+        </FormSection>
 
-            <FormSection
-              title="2. Danh sách sản phẩm đặt mua"
-              description="Giá niêm yết được áp dụng tự động từ máy chủ"
-            >
-              <div className="flex flex-col gap-2">
-                <Text variant="label" as="label">
-                  Tra cứu &amp; thêm sản phẩm vào đơn:
+        <FormSection
+          title="2. Danh sách sản phẩm đặt mua"
+          description="Giá niêm yết được áp dụng tự động từ máy chủ"
+        >
+          <div className="flex flex-col gap-2">
+            <Text variant="label" as="label">
+              Tra cứu &amp; thêm sản phẩm vào đơn:
+            </Text>
+            <ProductSelector onSelect={handleAddProduct} />
+          </div>
+
+          {lines.length === 0 ? (
+            <Card variant="muted" className="p-4">
+              <div className="flex flex-row w-full justify-center">
+                <Text variant="supporting" as="p">
+                  Chưa có sản phẩm nào được chọn. Hãy tra cứu sản phẩm ở trên để thêm vào đơn hàng.
                 </Text>
-                <ProductSelector onSelect={handleAddProduct} />
               </div>
+            </Card>
+          ) : (
+            <>
+              <Table data={lineRows} columns={lineColumns} idKey="key" density="balanced" />
 
-              {lines.length === 0 ? (
-                <Card variant="muted" className="p-4">
-                  <div className="flex flex-row w-full justify-center">
-                    <Text variant="supporting" as="p">
-                      Chưa có sản phẩm nào được chọn. Hãy tra cứu sản phẩm ở trên để thêm vào đơn hàng.
+              <div className="border-t border-brand-border" />
+
+              <div className="flex flex-row w-full justify-end">
+                <div className="flex w-full flex-col gap-2 sm:w-80">
+                  <div className="flex flex-row w-full justify-between gap-4">
+                    <Text variant="supporting" as="span">
+                      Tổng tiền hàng:
+                    </Text>
+                    <Text className="font-medium tabular-nums" as="span">
+                      {formatCurrency(grossTotal)}
                     </Text>
                   </div>
-                </Card>
-              ) : (
-                <>
-                  <Table data={lineRows} columns={lineColumns} idKey="key" density="balanced" />
+
+                  <div className="flex flex-row w-full justify-between gap-4">
+                    <Text variant="supporting" as="span">
+                      Tiền giảm giá:
+                    </Text>
+                    <Text className="tabular-nums" as="span">{'- ' + formatCurrency(discountTotal)}</Text>
+                  </div>
 
                   <div className="border-t border-brand-border" />
 
-                  <div className="flex flex-row w-full justify-end">
-                    <div className="flex w-full flex-col gap-2 sm:w-80">
-                      <div className="flex flex-row w-full justify-between gap-4">
-                        <Text variant="supporting" as="span">
-                          Tổng tiền hàng:
-                        </Text>
-                        <Text className="font-medium tabular-nums" as="span">
-                          {formatCurrency(grossTotal)}
-                        </Text>
-                      </div>
-
-                      <div className="flex flex-row w-full justify-between gap-4">
-                        <Text variant="supporting" as="span">
-                          Tiền giảm giá:
-                        </Text>
-                        <Text className="tabular-nums" as="span">{'- ' + formatCurrency(discountTotal)}</Text>
-                      </div>
-
-                      <div className="border-t border-brand-border" />
-
-                      <div className="flex flex-row w-full justify-between gap-4">
-                        <Text className="font-bold" as="span">
-                          Tổng thanh toán:
-                        </Text>
-                        <Text className="font-bold tabular-nums" as="span">
-                          {formatCurrency(netTotal)}
-                        </Text>
-                      </div>
-                    </div>
+                  <div className="flex flex-row w-full justify-between gap-4">
+                    <Text className="font-bold" as="span">
+                      Tổng thanh toán:
+                    </Text>
+                    <Text className="font-bold tabular-nums" as="span">
+                      {formatCurrency(netTotal)}
+                    </Text>
                   </div>
-                </>
-              )}
-            </FormSection>
-          </>
-        )}
+                </div>
+              </div>
+            </>
+          )}
+        </FormSection>
       </form>
     </Dialog>
   );

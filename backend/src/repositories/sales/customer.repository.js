@@ -129,6 +129,26 @@ async function findByCode(code) {
   return result.rows[0] || null;
 }
 
+/**
+ * Finds the customer that owns a tax id, so the service can reject a duplicate
+ * before the database. excludeId lets an update re-send the value it already stores.
+ *
+ * @param {string} taxCode
+ * @param {number|null} [excludeId]
+ * @returns {Promise<object|null>}
+ */
+async function findByTaxCode(taxCode, excludeId = null) {
+  const sql = `
+      SELECT id, ma_khach_hang, ten_khach_hang
+      FROM khach_hang
+      WHERE ma_so_thue = $1
+        AND ($2::bigint IS NULL OR id <> $2::bigint)
+      LIMIT 1
+    `;
+  const result = await db.query(sql, [taxCode, excludeId]);
+  return result.rows[0] || null;
+}
+
 async function create(data) {
   const sql = `
       INSERT INTO khach_hang (
@@ -291,6 +311,7 @@ module.exports = {
   list,
   findById,
   findByCode,
+  findByTaxCode,
   create,
   update,
   updateStatus,

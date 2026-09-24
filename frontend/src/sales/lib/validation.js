@@ -70,8 +70,20 @@ export function serverFieldErrors(error, knownFields) {
  * wherever the check ran. Message parity is asserted in `validation.test.js`.
  * ------------------------------------------------------------------------- */
 
-/** Mirrors `PHONE_RE` in `backend/src/utils/sales/validate.js`. */
-export const PHONE_PATTERN = /^[0-9+\-(). ]{8,20}$/;
+/**
+ * Mirrors `PHONE_RE` in `backend/src/utils/sales/validate.js`: a Vietnamese
+ * number is either domestic (0 + 9-10 digits) or E.164 (+ + country code 1-9,
+ * at most 15 digits). Separators are stripped first by `normalizePhone`.
+ */
+export const PHONE_PATTERN = /^(?:0\d{9,10}|\+[1-9]\d{7,14})$/;
+
+/** Mirrors `normalizePhone`: spaces and `-` separate digits, they are not content. */
+export function normalizePhone(value) {
+  return typeof value === 'string' ? value.trim().replace(/[\s-]+/g, '') : value;
+}
+
+/** Mirrors `TAX_CODE_RE` in `customer.service.js`: 10 digits or 10 digits-3 digits. */
+export const TAX_CODE_PATTERN = /^\d{10}(-\d{3})?$/;
 
 /** `MESSAGES.required` — the answer for a missing field with no default. */
 export const GENERIC_REQUIRED = 'Trường này là bắt buộc.';
@@ -187,7 +199,7 @@ export function firstFieldError(fieldErrors) {
  */
 function phoneFieldError(value) {
   if (value === undefined || value === null) return GENERIC_REQUIRED;
-  const phone = trimmed(value);
+  const phone = normalizePhone(value);
   if (phone.length < LIMITS.phoneMin) return 'Số điện thoại phải từ 8 ký tự';
   if (phone.length > LIMITS.phoneMax) return 'Số điện thoại tối đa 20 ký tự';
   return PHONE_PATTERN.test(phone) ? null : 'Số điện thoại không đúng định dạng.';
@@ -202,7 +214,12 @@ const CUSTOMER_RULES = [
   ['ten_khach_hang', (v) => requiredError(v, 'Tên khách hàng không được để trống') ||
     maxLengthError(v, LIMITS.customerName, 'Tên khách hàng tối đa 200 ký tự')],
   ['loai_khach_hang', (v) => ([...CUSTOMER_TYPE_VALUES].includes(v) ? null : 'Giá trị không nằm trong danh sách cho phép.')],
-  ['ma_so_thue', (v) => maxLengthError(v, LIMITS.taxCode, 'Mã số thuế tối đa 20 ký tự')],
+  ['ma_so_thue', (v) => {
+    if (v === undefined || v === null || v === '') return null;
+    const taxCode = trimmed(v);
+    if (taxCode.length > LIMITS.taxCode) return 'Mã số thuế tối đa 20 ký tự';
+    return TAX_CODE_PATTERN.test(taxCode) ? null : 'Mã số thuế không đúng định dạng (10 số hoặc 10 số-3 số)';
+  }],
   ['so_dien_thoai', phoneFieldError],
   ['email', (v) => {
     // `parseString` trims before `.email()`, and `.or(v.literal(''))` only accepts

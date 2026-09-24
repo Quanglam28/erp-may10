@@ -28,8 +28,21 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** ISO calendar date, `YYYY-MM-DD`. */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Digits with the usual separators: `0912345678`, `+84 91 234 5678`, `(024) 3-9...`. */
-const PHONE_RE = /^[0-9+\-(). ]{8,20}$/;
+/**
+ * Vietnamese phone number: domestic 10 digits (mobile 0xxxxxxxxx) OR 11 digits
+ * (landline 02xxxxxxxx) OR E.164 (+ + country code 1-9 + up to 14 more digits).
+ * Separators are stripped by normalizePhone before this test.
+ */
+const PHONE_RE = /^(?:0\d{9,10}|\+[1-9]\d{7,14})$/;
+
+/**
+ * Strips the separators a phone number may be typed with (spaces and `-`) so
+ * `024 3768 9999` and `02437689999` or `+84 91 234-5678` are normalized.
+ */
+function normalizePhone(value) {
+  if (typeof value !== 'string') return value;
+  return value.trim().replace(/[\s-]+/g, '');
+}
 
 /** True when an ISO date names a real calendar day (`2026-02-30` is not one). */
 function isRealDate(value) {
@@ -113,6 +126,7 @@ class Schema {
     this.patternRegex = null;
     this.patternMessage = null;
     this.isTrimmed = false;
+    this.normalizer = null;
     this.isDateISO = false;
     this.dateMessage = null;
     this.isStrict = false;
@@ -194,6 +208,12 @@ class Schema {
   trim() {
     return this.derive((s) => {
       s.isTrimmed = true;
+    });
+  }
+
+  normalize(fn) {
+    return this.derive((s) => {
+      s.normalizer = fn;
     });
   }
 
@@ -396,6 +416,9 @@ class Schema {
     if (this.isTrimmed) {
       value = value.trim();
     }
+    if (this.normalizer) {
+      value = this.normalizer(value);
+    }
     if (this.minValue !== null && value.length < this.minValue) {
       issues.push(
         makeIssue(path, this.minMessage || `Giá trị phải có ít nhất ${this.minValue} ký tự.`)
@@ -562,8 +585,12 @@ const v = {
   literal: (value, config = {}) => new Schema('literal', { value, message: config.message || null }),
   /** ISO calendar date string (`YYYY-MM-DD`) that must exist on the calendar. */
   dateISO: (message = null) => new Schema('string', {}).dateISO(message),
-  /** Phone number: digits plus `+ - ( ) . space`, 8-20 characters. */
-  phone: (message = null) => new Schema('string', {}).regex(PHONE_RE, message || MESSAGES.phone),
+  /**
+   * Vietnamese phone number: separators (spaces, `-`) are stripped, then the
+   * value must be domestic 10/11 digits or E.164.
+   */
+  phone: (message = null) =>
+    new Schema('string', {}).normalize(normalizePhone).regex(PHONE_RE, message || MESSAGES.phone),
   array: (items, config = {}) => new Schema('array', { items, ...config }),
   object: (shape) => new Schema('object', { shape }),
   coerce: {
@@ -579,4 +606,4 @@ const v = {
   },
 };
 
-module.exports = { v, MESSAGES, Schema, PHONE_RE, DATE_RE, isRealDate };
+module.exports = { v, MESSAGES, Schema, PHONE_RE, DATE_RE, isRealDate, normalizePhone };

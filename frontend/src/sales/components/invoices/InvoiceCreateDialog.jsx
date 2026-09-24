@@ -6,7 +6,17 @@ import { DateInput } from '../ui/DateInput.jsx';
 import { NumberInput } from '../ui/NumberInput.jsx';
 import { Textarea } from '../ui/Textarea.jsx';
 import { toast } from '../ui/toast.jsx';
+import { Text } from '../ui/Typography.jsx';
 import { fieldStatus, firstFieldError, invoiceFieldErrors, serverFieldErrors, toWireAmount } from '../../lib/validation.js';
+import { OrderSelector } from '../orders/OrderSelector.jsx';
+import { formatCurrency } from '../../lib/format.js';
+
+/**
+ * Orders an invoice may be issued against. The API refuses `cho_xac_nhan` and
+ * `huy` (`INVOICE_INVALID_ORDER`), so the picker offers the rest and lets the
+ * endpoint reject an order that already has an invoice.
+ */
+const INVOICEABLE_ORDER_STATES = ['da_xac_nhan', 'dang_san_xuat', 'da_giao'];
 
 /**
  * Invoice creation as a modal, ported from the old `/invoices/new` page so the
@@ -22,6 +32,7 @@ export function InvoiceCreateDialog({ isOpen, onOpenChange, onCreated }) {
   const formId = 'invoice-create-form';
 
   const [orderId, setOrderId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [paidAmount, setPaidAmount] = useState(0);
   const [notes, setNotes] = useState('');
@@ -33,6 +44,7 @@ export function InvoiceCreateDialog({ isOpen, onOpenChange, onCreated }) {
   useEffect(() => {
     if (!isOpen) return;
     setOrderId(null);
+    setSelectedOrder(null);
     setIssueDate(new Date().toISOString().split('T')[0]);
     setPaidAmount(0);
     setNotes('');
@@ -103,16 +115,26 @@ export function InvoiceCreateDialog({ isOpen, onOpenChange, onCreated }) {
         noValidate
         className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1"
       >
-        <NumberInput
-          label="ID Đơn bán hàng *"
-          placeholder="Nhập ID đơn hàng cần xuất hóa đơn (VD: 1)"
-          description="Hóa đơn chỉ được tạo cho đơn hàng đã xác nhận và chưa từng được xuất hóa đơn trước đó."
-          value={orderId}
-          onChange={setOrderId}
-          hasClear
-          status={fieldStatus(fieldErrors, 'ma_don_ban_hang')}
-          className="w-full"
-        />
+        <div>
+          <OrderSelector
+            label="Đơn bán hàng *"
+            trangThaiIn={INVOICEABLE_ORDER_STATES}
+            status={fieldStatus(fieldErrors, 'ma_don_ban_hang')}
+            onSelect={(order) => {
+              setSelectedOrder(order);
+              setOrderId(order.id);
+            }}
+          />
+          <Text variant="supporting" className="mt-1 block">
+            {selectedOrder
+              ? 'Đã chọn: ' + selectedOrder.ma_don_ban +
+                (selectedOrder.ten_khach_hang ? ' • Khách hàng: ' + selectedOrder.ten_khach_hang : '') +
+                (selectedOrder.tong_thanh_toan !== undefined && selectedOrder.tong_thanh_toan !== null
+                  ? ' • Tổng: ' + formatCurrency(Number(selectedOrder.tong_thanh_toan))
+                  : '')
+              : 'Hóa đơn chỉ được tạo cho đơn hàng đã xác nhận và chưa từng được xuất hóa đơn trước đó.'}
+          </Text>
+        </div>
 
         <DateInput
           label="Ngày xuất hóa đơn *"

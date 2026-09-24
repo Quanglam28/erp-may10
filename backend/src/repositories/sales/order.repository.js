@@ -48,6 +48,11 @@ async function list(filters = {}) {
     conditions.push(`o.trang_thai = $${params.length}`);
   }
 
+  if (Array.isArray(filters.trang_thai_in) && filters.trang_thai_in.length > 0) {
+    params.push(filters.trang_thai_in);
+    conditions.push(`o.trang_thai = ANY($${params.length}::text[])`);
+  }
+
   if (filters.nguoi_ban) {
     params.push(filters.nguoi_ban);
     conditions.push(`o.nguoi_ban = $${params.length}`);

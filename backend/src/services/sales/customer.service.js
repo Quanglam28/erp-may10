@@ -22,6 +22,17 @@ const customerRepository = require('../../repositories/sales/customer.repository
 const customerTypeEnum = v.enum(['ca_nhan', 'to_chuc', 'dai_ly', 'xuat_khau']);
 const customerStatusEnum = v.enum(['hoat_dong', 'tam_khoa', 'ngung_giao_dich']);
 
+/**
+ * Vietnamese tax id: 10 digits, optionally followed by a 3-digit branch
+ * (`0100109106` or `0100109106-001`).
+ */
+const TAX_CODE_RE = /^\d{10}(-\d{3})?$/;
+const TAX_CODE_MESSAGE = 'Mã số thuế không đúng định dạng (10 số hoặc 10 số-3 số)';
+const TAX_CODE_DUPLICATE_MESSAGE = 'Mã số thuế đã được sử dụng bởi khách hàng khác.';
+
+/** PostgreSQL unique-violation code, used to map the DB guard onto a 409. */
+const PG_UNIQUE_VIOLATION = '23505';
+
 const createCustomerSchema = v
   .object({
     ten_khach_hang: v
@@ -30,7 +41,14 @@ const createCustomerSchema = v
       .min(1, 'Tên khách hàng không được để trống')
       .max(200, 'Tên khách hàng tối đa 200 ký tự'),
     loai_khach_hang: customerTypeEnum,
-    ma_so_thue: v.string().trim().max(20, 'Mã số thuế tối đa 20 ký tự').optional().nullable(),
+    ma_so_thue: v
+      .string()
+      .trim()
+      .max(20, 'Mã số thuế tối đa 20 ký tự')
+      .regex(TAX_CODE_RE, TAX_CODE_MESSAGE)
+      .optional()
+      .nullable()
+      .or(v.literal('')),
     so_dien_thoai: v
       .phone()
       .trim()
@@ -91,6 +109,32 @@ const customerQuerySchema = v
   })
 
 function createCustomerService(repository = customerRepository) {
+  /**
+   * Rejects a tax id already used by another customer. The check answers the
+   * friendly 409; the partial unique index guard is mapped below from PG error.
+   */
+  async function assertTaxCodeAvailable(taxCode, excludeId = null) {
+    if (!taxCode) return;
+    const duplicate = await repository.findByTaxCode(taxCode, excludeId);
+    if (!duplicate) return;
+    throw new ConflictError(
+      'CUSTOMER_TAX_CODE_EXISTS',
+      `Mã số thuế "${taxCode}" đã được sử dụng bởi khách hàng ${duplicate.ma_khach_hang}.`,
+      [{ field: 'ma_so_thue', message: TAX_CODE_DUPLICATE_MESSAGE }]
+    );
+  }
+
+  /** Maps the DB uniqueness guard onto the same 409 the pre-check raises. */
+  function toConflictIfTaxCodeTaken(error) {
+    const constraint = error && error.constraint ? String(error.constraint) : '';
+    if (error && error.code === PG_UNIQUE_VIOLATION && constraint.includes('ma_so_thue')) {
+      return new ConflictError('CUSTOMER_TAX_CODE_EXISTS', TAX_CODE_DUPLICATE_MESSAGE, [
+        { field: 'ma_so_thue', message: TAX_CODE_DUPLICATE_MESSAGE },
+      ]);
+    }
+    return null;
+  }
+
   async function listCustomers(queryFilters) {
     const parseResult = customerQuerySchema.safeParse(queryFilters);
     if (!parseResult.success) {
@@ -137,23 +181,30 @@ function createCustomerService(repository = customerRepository) {
       throw new ConflictError('DATABASE_CONFLICT', 'Không thể tạo mã khách hàng duy nhất. Vui lòng thử lại.');
     }
 
-    return repository.create({
-      ma_khach_hang: maKhachHang,
-      ten_khach_hang: validated.ten_khach_hang.trim(),
-      loai_khach_hang: validated.loai_khach_hang,
-      ma_so_thue: validated.ma_so_thue ? validated.ma_so_thue.trim() : null,
-      so_dien_thoai: validated.so_dien_thoai.trim(),
-      email: validated.email ? validated.email.trim().toLowerCase() : null,
-      dia_chi: validated.dia_chi.trim(),
-      tinh_thanh_pho: validated.tinh_thanh_pho.trim(),
-      nguoi_lien_he: validated.nguoi_lien_he ? validated.nguoi_lien_he.trim() : null,
-      han_muc_cong_no: validated.han_muc_cong_no,
-      so_ngay_cong_no: validated.so_ngay_cong_no,
-      ghi_chu: validated.ghi_chu ? validated.ghi_chu.trim() : null,
-      trang_thai: 'hoat_dong',
-      nguoi_tao: creatorId,
-      nguoi_cap_nhat: creatorId,
-    });
+    const taxCode = validated.ma_so_thue ? validated.ma_so_thue.trim() : null;
+    await assertTaxCodeAvailable(taxCode);
+
+    try {
+      return await repository.create({
+        ma_khach_hang: maKhachHang,
+        ten_khach_hang: validated.ten_khach_hang.trim(),
+        loai_khach_hang: validated.loai_khach_hang,
+        ma_so_thue: taxCode,
+        so_dien_thoai: validated.so_dien_thoai.trim(),
+        email: validated.email ? validated.email.trim().toLowerCase() : null,
+        dia_chi: validated.dia_chi.trim(),
+        tinh_thanh_pho: validated.tinh_thanh_pho.trim(),
+        nguoi_lien_he: validated.nguoi_lien_he ? validated.nguoi_lien_he.trim() : null,
+        han_muc_cong_no: validated.han_muc_cong_no,
+        so_ngay_cong_no: validated.so_ngay_cong_no,
+        ghi_chu: validated.ghi_chu ? validated.ghi_chu.trim() : null,
+        trang_thai: 'hoat_dong',
+        nguoi_tao: creatorId,
+        nguoi_cap_nhat: creatorId,
+      });
+    } catch (error) {
+      throw toConflictIfTaxCodeTaken(error) || error;
+    }
   }
 
   async function updateCustomer(id, rawInput, updaterId) {
@@ -182,7 +233,17 @@ function createCustomerService(repository = customerRepository) {
     if (validated.so_ngay_cong_no !== undefined) updatePayload.so_ngay_cong_no = validated.so_ngay_cong_no;
     if (validated.ghi_chu !== undefined) updatePayload.ghi_chu = validated.ghi_chu ? validated.ghi_chu.trim() : null;
 
-    const updated = await repository.update(id, updatePayload, updaterId);
+    // A tax id may be re-sent unchanged; only a value taken by another customer is a conflict
+    if (updatePayload.ma_so_thue) {
+      await assertTaxCodeAvailable(updatePayload.ma_so_thue, id);
+    }
+
+    let updated;
+    try {
+      updated = await repository.update(id, updatePayload, updaterId);
+    } catch (error) {
+      throw toConflictIfTaxCodeTaken(error) || error;
+    }
     if (!updated) {
       throw new NotFoundError('CUSTOMER_NOT_FOUND', `Không tìm thấy khách hàng có ID ${id}.`);
     }

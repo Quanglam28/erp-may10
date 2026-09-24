@@ -48,9 +48,10 @@ class NotFoundError extends AppError {
 class ConflictError extends AppError {
   constructor(
     errorCode = 'DATABASE_CONFLICT',
-    message = 'Thao tác xung đột với dữ liệu hiện có hoặc bị tranh chấp đồng thời.'
+    message = 'Thao tác xung đột với dữ liệu hiện có hoặc bị tranh chấp đồng thời.',
+    details = null
   ) {
-    super(409, errorCode, message);
+    super(409, errorCode, message, details);
   }
 }
 
