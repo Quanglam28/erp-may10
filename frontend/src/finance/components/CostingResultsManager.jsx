@@ -98,12 +98,12 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
 
   return (
     <section className="panel costing-results-manager">
-      <header>
+      <header className="costing-results-header">
         <div>
           <h2>Kết quả giá thành đã lưu</h2>
           <p>Lịch sử snapshot của lệnh sản xuất; kết quả đã duyệt được bảo vệ.</p>
         </div>
-        <span>{state.data.length} kết quả</span>
+        <span className="costing-count-badge">{state.data.length} kết quả</span>
       </header>
       {message && <div className={`costing-manager-message ${message.type}`}>{message.text}</div>}
       {state.loading ? (
@@ -111,11 +111,13 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
       ) : state.error ? (
         <div className="costing-state error">{state.error}</div>
       ) : !state.data.length ? (
-        <div className="costing-empty compact">
-          <Icon name="calculator" />
-          <div>
+        <div className="costing-empty compact costing-empty-history">
+          <div className="costing-empty-icon">
+            <Icon name="calculator" />
+          </div>
+          <div className="costing-empty-body">
             <h3>Chưa có kết quả giá thành</h3>
-            <p>Hãy dùng khu vực tính giá thành phía trên để tạo dự thảo đầu tiên.</p>
+            <p>Hãy dùng khu vực tính giá thành phía trên để tạo dự thảo đầu tiên cho lệnh sản xuất này.</p>
           </div>
         </div>
       ) : (
@@ -124,17 +126,17 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
             <thead>
               <tr>
                 {[
+                  'Mã giá thành',
                   'Kỳ',
                   'Sản phẩm',
                   'Sản lượng',
                   'NVL',
                   'Nhân công',
                   'SXC',
-                  'Tổng',
-                  'Đơn vị',
+                  'Tổng giá thành',
+                  'Đơn giá',
                   'Trạng thái',
-                  'Ngày tạo',
-                  'Người tính',
+                  'Người tạo / duyệt',
                   'Thao tác',
                 ].map((label) => (
                   <th key={label}>{label}</th>
@@ -145,6 +147,10 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
               {state.data.map((snapshot) => (
                 <tr key={snapshot.id}>
                   <td>
+                    <strong className="font-mono text-blue">#{snapshot.id}</strong>
+                    <small className="font-mono">{snapshot.ma_lenh_san_xuat}</small>
+                  </td>
+                  <td>
                     <strong>{snapshot.ky_tinh_gia_thanh}</strong>
                     <small>{snapshot.ghi_chu || 'Không có ghi chú'}</small>
                   </td>
@@ -152,28 +158,31 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
                     <strong>{snapshot.ma_san_pham}</strong>
                     <small>{snapshot.ten_san_pham}</small>
                   </td>
-                  <td>{Number(snapshot.so_luong_san_xuat).toLocaleString('vi-VN')}</td>
+                  <td>{Number(snapshot.so_luong_san_xuat).toLocaleString('vi-VN')} SP</td>
                   <td className="amount">{money(snapshot.chi_phi_vat_lieu_truc_tiep)}</td>
                   <td className="amount">{money(snapshot.chi_phi_nhan_cong_truc_tiep)}</td>
                   <td className="amount">{money(snapshot.chi_phi_san_xuat_chung)}</td>
-                  <td className="amount">{money(snapshot.tong_chi_phi)}</td>
-                  <td className="amount">{money(snapshot.gia_thanh_don_vi)}</td>
+                  <td className="amount font-bold">{money(snapshot.tong_chi_phi)}</td>
+                  <td className="amount font-bold text-blue">{money(snapshot.gia_thanh_don_vi)}</td>
                   <td>
                     <span className={`costing-badge ${snapshot.trang_thai === 'du_thao' ? 'warn' : 'done'}`}>
                       {snapshot.trang_thai === 'du_thao' ? 'Dự thảo' : 'Đã duyệt'}
                     </span>
                   </td>
-                  <td>{dateTime(snapshot.ngay_tao)}</td>
-                  <td>{snapshot.nguoi_tinh_ten || snapshot.nguoi_tinh || '—'}</td>
+                  <td>
+                    <div>{snapshot.nguoi_tinh_ten || snapshot.nguoi_tinh || '—'}</div>
+                    <small>{dateTime(snapshot.ngay_tao)}</small>
+                  </td>
                   <td>
                     <div className="costing-result-actions">
-                      <button title="Xem chi tiết" onClick={() => setViewing(snapshot)}>
+                      <button type="button" title="Xem chi tiết" onClick={() => setViewing(snapshot)}>
                         <Icon name="eye" />
                       </button>
                       {snapshot.trang_thai === 'du_thao' && (
                         <>
                           {canApprove && (
                             <button
+                              type="button"
                               title="Duyệt kết quả"
                               className="approve"
                               onClick={() => approve(snapshot)}
@@ -181,10 +190,11 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
                               <Icon name="check" />
                             </button>
                           )}
-                          <button title="Sửa dự thảo" onClick={() => beginEdit(snapshot)}>
+                          <button type="button" title="Sửa dự thảo" onClick={() => beginEdit(snapshot)}>
                             <Icon name="edit" />
                           </button>
                           <button
+                            type="button"
                             title="Xóa dự thảo"
                             className="danger"
                             onClick={() => remove(snapshot)}
@@ -218,12 +228,12 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
             <div className="costing-view-grid">
               {[
                 ['Sản phẩm', `${viewing.ma_san_pham} · ${viewing.ten_san_pham}`],
-                ['Sản lượng snapshot', Number(viewing.so_luong_san_xuat).toLocaleString('vi-VN')],
+                ['Sản lượng snapshot', `${Number(viewing.so_luong_san_xuat).toLocaleString('vi-VN')} SP`],
                 ['NVL snapshot', money(viewing.chi_phi_vat_lieu_truc_tiep)],
                 ['Nhân công', money(viewing.chi_phi_nhan_cong_truc_tiep)],
                 ['Chi phí SXC', money(viewing.chi_phi_san_xuat_chung)],
                 ['Tổng giá thành', money(viewing.tong_chi_phi)],
-                ['Giá thành đơn vị', money(viewing.gia_thanh_don_vi)],
+                ['Giá thành đơn vị', `${money(viewing.gia_thanh_don_vi)} / SP`],
                 ['Trạng thái', viewing.trang_thai === 'du_thao' ? 'Dự thảo' : 'Đã duyệt'],
                 ['Ngày tạo', dateTime(viewing.ngay_tao)],
                 ['Người tính', viewing.nguoi_tinh_ten || viewing.nguoi_tinh || '—'],
@@ -265,37 +275,61 @@ export default function CostingResultsManager({ productionOrderId, refreshKey, c
                 NVL snapshot <b>{money(editing.chi_phi_vat_lieu_truc_tiep)}</b>
               </span>
             </div>
-            <label>
-              Chi phí nhân công trực tiếp
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={form.laborCost}
-                onChange={(e) => setForm({ ...form, laborCost: e.target.value, confirmSourceChange: false })}
-              />
-            </label>
-            <label>
-              Chi phí sản xuất chung
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={form.overheadCost}
-                onChange={(e) => setForm({ ...form, overheadCost: e.target.value, confirmSourceChange: false })}
-              />
-            </label>
-            <label>
-              Căn cứ phân bổ
-              <textarea
-                required
-                maxLength="2000"
-                value={form.allocationBasis}
-                onChange={(e) => setForm({ ...form, allocationBasis: e.target.value, confirmSourceChange: false })}
-              />
-            </label>
+            <div className="costing-form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="costing-field-group">
+                <label htmlFor="edit-labor-cost" className="costing-field-label">
+                  Chi phí nhân công trực tiếp <span className="req-star">*</span>
+                </label>
+                <div className="costing-input-container">
+                  <input
+                    id="edit-labor-cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={form.laborCost}
+                    onChange={(e) => setForm({ ...form, laborCost: e.target.value, confirmSourceChange: false })}
+                    className="costing-text-input"
+                    placeholder="Nhập chi phí nhân công..."
+                  />
+                  <span className="costing-input-suffix">VNĐ</span>
+                </div>
+              </div>
+              <div className="costing-field-group">
+                <label htmlFor="edit-overhead-cost" className="costing-field-label">
+                  Chi phí sản xuất chung <span className="req-star">*</span>
+                </label>
+                <div className="costing-input-container">
+                  <input
+                    id="edit-overhead-cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={form.overheadCost}
+                    onChange={(e) => setForm({ ...form, overheadCost: e.target.value, confirmSourceChange: false })}
+                    className="costing-text-input"
+                    placeholder="Nhập chi phí sản xuất chung..."
+                  />
+                  <span className="costing-input-suffix">VNĐ</span>
+                </div>
+              </div>
+              <div className="costing-field-group costing-field-full">
+                <label htmlFor="edit-allocation-basis" className="costing-field-label">
+                  Căn cứ phân bổ <span className="req-star">*</span>
+                </label>
+                <textarea
+                  id="edit-allocation-basis"
+                  required
+                  maxLength="2000"
+                  rows={3}
+                  value={form.allocationBasis}
+                  onChange={(e) => setForm({ ...form, allocationBasis: e.target.value, confirmSourceChange: false })}
+                  className="costing-textarea"
+                  placeholder="Nhập căn cứ phân bổ..."
+                />
+              </div>
+            </div>
             {message?.type === 'warning' && <div className="costing-manager-message warning">{message.text}</div>}
             <footer>
               <button type="button" onClick={() => setEditing(null)}>
