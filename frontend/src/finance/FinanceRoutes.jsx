@@ -111,7 +111,7 @@ export default function FinanceRoutes() {
   } else if (path === '/chi-phi') {
     page = <Costs />;
   } else if (path === '/gia-thanh') {
-    page = <Costing />;
+    page = <Costing canApprove={hasPermission(currentUser, PERMISSIONS.COSTING_APPROVE)} />;
   } else if (path === '/hieu-qua-don-hang') {
     page = <OrderEfficiency />;
   } else if (

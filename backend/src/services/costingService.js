@@ -25,4 +25,22 @@ function listCosting(params){return read(async client=>{const{values,where,bind}
 function costingFilters(){return read(async client=>{const [objects,periods]=await Promise.all([client.query(`SELECT lsx.id,lsx.ma_lenh_san_xuat,sp.ma_san_pham,sp.ten_san_pham FROM public.lenh_san_xuat lsx JOIN public.san_pham sp ON sp.id=lsx.ma_san_pham ORDER BY lsx.ma_lenh_san_xuat`),client.query(`SELECT DISTINCT ky_tinh_gia_thanh FROM public.gia_thanh_san_pham WHERE ky_tinh_gia_thanh IS NOT NULL ORDER BY ky_tinh_gia_thanh`)]);return{objects:objects.rows,periods:periods.rows.map(x=>x.ky_tinh_gia_thanh),capabilities:{materialSource:true,laborSource:false,overheadSource:false,openingWip:false,closingWip:false,allocationDetails:false}};});}
 function costingDetail(id){return read(async client=>(await client.query(`SELECT ${columns} ${base} WHERE lsx.id=$1`,[id])).rows[0]||null);}
 
-module.exports = { listCosting, costingFilters, costingDetail };
+function costingHistory(productionOrderId) {
+  return read(async (client) => (await client.query(`
+    SELECT g.id, g.ma_lenh_san_xuat, g.ky_tinh_gia_thanh, g.so_luong_san_xuat,
+           g.chi_phi_vat_lieu_truc_tiep, g.chi_phi_nhan_cong_truc_tiep,
+           g.chi_phi_san_xuat_chung, g.tong_chi_phi, g.gia_thanh_don_vi,
+           g.ghi_chu, g.trang_thai, g.ngay_tao, g.ngay_cap_nhat,
+           g.nguoi_tinh, g.nguoi_tao, g.nguoi_cap_nhat,
+           lsx.ma_lenh_san_xuat, sp.ma_san_pham, sp.ten_san_pham, u.ho_ten AS nguoi_tinh_ten
+      FROM public.gia_thanh_san_pham g
+      JOIN public.lenh_san_xuat lsx ON lsx.id = g.ma_lenh_san_xuat
+      JOIN public.san_pham sp ON sp.id = g.ma_san_pham
+      LEFT JOIN public.nguoi_dung u ON u.id = g.nguoi_tinh
+     WHERE g.ma_lenh_san_xuat = $1
+     ORDER BY g.ngay_tao DESC, g.id DESC
+  `, [productionOrderId])).rows);
+}
+
+module.exports = { listCosting, costingFilters, costingDetail, costingHistory };
+

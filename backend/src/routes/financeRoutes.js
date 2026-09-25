@@ -42,8 +42,14 @@ router.get('/costs/filters', route(cost.getCostFilters));
 router.get('/costs', route(cost.getCosts));
 router.get('/costs/:id', route(cost.getCost));
 
-// 5. Costing (Tính giá thành sản phẩm)
+// 5. Costing (Tính giá thành sản phẩm & Quản lý vòng đời)
 router.get('/costing/filters', route(costing.getCostingFilters));
+router.post('/costing/preview', route(costing.postCostingPreview));
+router.post('/costing/save', route(costing.postCostingSave));
+router.patch('/costing/results/:id', route(costing.patchCostingDraft));
+router.delete('/costing/results/:id', route(costing.removeCostingDraft));
+router.post('/costing/results/:id/approve', requireRoles('ke_toan_truong'), route(costing.postCostingApproval));
+router.get('/costing/:id/history', route(costing.getCostingHistory));
 router.get('/costing', route(costing.getCosting));
 router.get('/costing/:id', route(costing.getCostingDetail));
 

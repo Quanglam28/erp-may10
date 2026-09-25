@@ -14,7 +14,7 @@ function build(params={}){const values=[],conditions=[];const bind=value=>{value
  SELECT h.ma_don_ban_hang AS order_id,count(*)::int AS invoice_count,sum(h.tong_tien_truoc_thue)::text AS revenue,min(h.ngay_xuat_hoa_don) AS first_invoice_date,max(h.ngay_xuat_hoa_don) AS last_invoice_date
  FROM public.hoa_don_ban_hang h ${invoiceWhere?`WHERE ${invoiceWhere}`:''} GROUP BY h.ma_don_ban_hang
 ), latest_costing AS (
- SELECT DISTINCT ON (g.ma_lenh_san_xuat) g.* FROM public.gia_thanh_san_pham g WHERE g.ma_lenh_san_xuat IS NOT NULL ${costingWhere?`AND ${costingWhere}`:''} ORDER BY g.ma_lenh_san_xuat,g.ngay_tao DESC,g.id DESC
+ SELECT DISTINCT ON (g.ma_lenh_san_xuat) g.* FROM public.gia_thanh_san_pham g WHERE g.ma_lenh_san_xuat IS NOT NULL AND g.trang_thai = 'da_duyet' ${costingWhere?`AND ${costingWhere}`:''} ORDER BY g.ma_lenh_san_xuat,g.ngay_tao DESC,g.id DESC
 ), cost_totals AS (
  SELECT lsx.ma_don_ban_hang AS order_id,count(g.id)::int AS costing_count,sum(g.tong_chi_phi)::text AS total_cost,sum(g.chi_phi_vat_lieu_truc_tiep)::text AS material_cost,sum(g.chi_phi_nhan_cong_truc_tiep)::text AS labor_cost,sum(g.chi_phi_san_xuat_chung)::text AS overhead_cost,string_agg(DISTINCT lsx.ma_lenh_san_xuat,', ' ORDER BY lsx.ma_lenh_san_xuat) AS production_orders
  FROM public.lenh_san_xuat lsx LEFT JOIN latest_costing g ON g.ma_lenh_san_xuat=lsx.id WHERE lsx.ma_don_ban_hang IS NOT NULL GROUP BY lsx.ma_don_ban_hang
